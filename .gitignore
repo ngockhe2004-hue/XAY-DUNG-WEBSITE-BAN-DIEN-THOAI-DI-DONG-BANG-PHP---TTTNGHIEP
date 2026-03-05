@@ -1,0 +1,8 @@
+/uploads/*
+!/uploads/.gitkeep
+/config/database.php
+.DS_Store
+Thumbs.db
+*.log
+/tmp/
+/brain/
