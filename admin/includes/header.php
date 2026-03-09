@@ -9,9 +9,10 @@ $pendingReviews = db()->fetchColumn("SELECT COUNT(*) FROM danhgia WHERE trang_th
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= isset($pageTitle) ? sanitize($pageTitle) . ' | Admin' : 'Admin Panel - PhoneStore' ?></title>
+    <title><?= isset($pageTitle) ? sanitize($pageTitle) . ' | Admin' : 'Admin Panel - Phonestore' ?></title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/admin.css?v=<?= time() ?>">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="<?= BASE_URL ?>/assets/images/favicon.png">
 </head>
 <body>
 

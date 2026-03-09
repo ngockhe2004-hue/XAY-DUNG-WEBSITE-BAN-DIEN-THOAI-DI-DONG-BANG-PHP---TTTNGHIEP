@@ -211,7 +211,7 @@ $coupons = db()->fetchAll("SELECT * FROM ma_khuyenmai ORDER BY ngay_tao DESC");
                     <label class="form-label">LOẠI GIẢM GIÁ *</label>
                     <select name="kieu_giam" id="fKieu" class="form-control">
                         <option value="phan_tram">Phần trăm (%)</option>
-                        <option value="so_tien">Cố định (₫)</option>
+                        <option value="so_tien">Cố định (VND)</option>
                     </select>
                 </div>
                 <div class="form-group">

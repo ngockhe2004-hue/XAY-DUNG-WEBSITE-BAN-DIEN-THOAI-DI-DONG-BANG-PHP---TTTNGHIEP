@@ -110,7 +110,7 @@ if ($gio) {
             </div>
             <div class="summary-row" id="discountRow" style="display:none;">
                 <span class="label">Giảm giá</span>
-                <span style="color:var(--danger);" id="discountDisplay">-0 ₫</span>
+                <span style="color:var(--danger);" id="discountDisplay">-0 VND</span>
             </div>
             <div class="summary-row summary-total">
                 <span>Tổng cộng</span>
@@ -146,7 +146,7 @@ let subtotal = <?= $total ?>;
 let discount = 0;
 
 function calcTotal() {
-    const ship = (subtotal - discount) >= SHIP_FREE ? 0 : SHIP_FEE;
+    const ship = subtotal >= SHIP_FREE ? 0 : SHIP_FEE;
     return Math.max(0, subtotal - discount) + ship;
 }
 
@@ -161,7 +161,7 @@ function refreshDisplay() {
 }
 
 function fmtPrice(n) {
-    return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' ₫';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' VND';
 }
 
 async function updateQty(ctghId, delta, maxStock) {

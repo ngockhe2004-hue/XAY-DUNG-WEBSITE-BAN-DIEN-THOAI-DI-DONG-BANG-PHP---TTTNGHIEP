@@ -25,8 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email   = sanitize($_POST['email'] ?? '');
         $sdt     = sanitize($_POST['sdt'] ?? '');
         $diachi  = sanitize($_POST['dia_chi'] ?? '');
-        db()->execute("UPDATE users SET hovaten=?, email=?, SDT=?, dia_chi=? WHERE ma_user=? AND quyen='customer'", 
-            [$hovaten, $email, $sdt, $diachi, $uid]);
+        $gioitinh = sanitize($_POST['gioi_tinh'] ?? '');
+        $ngaysinh = $_POST['ngay_sinh'] ?: null;
+        
+        db()->execute("UPDATE users SET hovaten=?, email=?, SDT=?, dia_chi=?, gioi_tinh=?, ngay_sinh=? WHERE ma_user=? AND quyen='customer'", 
+            [$hovaten, $email, $sdt, $diachi, $gioitinh, $ngaysinh, $uid]);
         setFlash('success','Đã cập nhật thông tin người dùng');
     }
     redirect(BASE_URL . '/admin/customer_management.php?tab=users');
@@ -56,12 +59,21 @@ $users = db()->fetchAll("SELECT *, (SELECT COUNT(*) FROM donhang WHERE ma_user=u
     </div>
 </div>
 
-<!-- Simple Filter -->
-<div class="section-card" style="margin-bottom: 30px; padding: 20px;">
-    <form method="GET" class="filter-bar" style="margin-bottom: 0;">
-        <input name="q" class="form-control" placeholder="🔍 Tìm theo Tên đăng nhập, Email hoặc Họ tên..." value="<?= sanitize($q) ?>" style="flex: 1;">
-        <button type="submit" class="btn btn-primary">TÌM KIẾM</button>
-        <a href="customer_management.php?tab=users" class="btn btn-outline">LÀM MỚI</a>
+<!-- Modern Filter Bar -->
+<div class="animate-fade-up" style="margin-bottom: 30px;">
+    <form method="GET" class="filter-bar">
+        <div class="search-group">
+            <span class="icon">🔍</span>
+            <input type="text" name="q" class="form-control" placeholder="Tìm theo Tên đăng nhập, Email hoặc Họ tên..." value="<?= sanitize($q) ?>">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn btn-primary btn-filter">
+                <span>LỌC DỮ LIỆU</span>
+            </button>
+            <a href="customer_management.php?tab=users" class="btn btn-outline btn-filter" style="background: #fff;">
+                <span>LÀM MỚI</span>
+            </a>
+        </div>
     </form>
 </div>
 
@@ -130,7 +142,7 @@ $users = db()->fetchAll("SELECT *, (SELECT COUNT(*) FROM donhang WHERE ma_user=u
                     </td>
                     <td style="padding-right: 30px;">
                         <div style="display:flex; gap:10px; justify-content: center;">
-                            <button class="btn-icon btn-outline" onclick='openEditUser(<?= json_encode($u) ?>)' title="Chỉnh sửa thông tin" style="color: var(--purple); border-color: var(--purple-light);">✏️</button>
+                            <a href="customer_detail.php?id=<?= $u['ma_user'] ?>" class="btn-icon btn-outline" title="Chỉnh sửa thông tin" style="color: var(--purple); border-color: var(--purple-light); text-decoration: none; display: flex; align-items: center; justify-content: center;">✏️</a>
                             <form method="POST" style="display:contents;" onsubmit="return confirm('⚠️ Chắc chắn muốn XÓA khách hàng này?\nDữ liệu không thể khôi phục.')">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="uid" value="<?= $u['ma_user'] ?>">
@@ -147,59 +159,6 @@ $users = db()->fetchAll("SELECT *, (SELECT COUNT(*) FROM donhang WHERE ma_user=u
 
 </div>
 
-<!-- Modern Edit User Modal -->
-<div id="editUserModal" style="display:none; position:fixed; inset:0; background:rgba(15, 23, 42, 0.6); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(8px);">
-    <div class="section-card animate-fade-up" style="width:95%; max-width:550px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 30px 60px rgba(0,0,0,0.2);">
-        <div class="section-card-header" style="background: var(--purple-grad); color: #fff;">
-            <h3 style="color: #fff;">👤 CHỈNH SỬA THÀNH VIÊN</h3>
-            <button onclick="document.getElementById('editUserModal').style.display='none'" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <div class="section-card-body">
-            <form method="POST">
-                <input type="hidden" name="action" value="edit_user">
-                <input type="hidden" name="uid" id="edit_uid">
-                
-                <div class="form-grid" style="grid-template-columns: 1fr; gap: 20px;">
-                    <div class="form-group">
-                        <label class="form-label">Họ và tên khách hàng</label>
-                        <input type="text" name="hovaten" id="edit_hovaten" class="form-control" required style="background: #f8fafc;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Email liên hệ</label>
-                        <input type="email" name="email" id="edit_email" class="form-control" required style="background: #f8fafc;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Số điện thoại</label>
-                        <input type="tel" name="sdt" id="edit_sdt" class="form-control" style="background: #f8fafc;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Địa chỉ nhận hàng</label>
-                        <textarea name="dia_chi" id="edit_diachi" class="form-control" rows="3" style="resize:none; background: #f8fafc;"></textarea>
-                    </div>
-                </div>
-                
-                <div style="display:flex; gap:12px; margin-top:30px; justify-content:flex-end;">
-                    <button type="button" class="btn btn-outline" onclick="document.getElementById('editUserModal').style.display='none'">HỦY BỎ</button>
-                    <button type="submit" class="btn btn-primary" style="padding: 12px 30px;">LƯU THAY ĐỔI</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-function openEditUser(u) {
-    document.getElementById('edit_uid').value = u.ma_user;
-    document.getElementById('edit_hovaten').value = u.hovaten || u.ten_user || '';
-    document.getElementById('edit_email').value = u.email || '';
-    document.getElementById('edit_sdt').value = u.SDT || '';
-    document.getElementById('edit_diachi').value = u.dia_chi || '';
-    document.getElementById('editUserModal').style.display = 'flex';
-}
-</script>
 
 <?php if (!isset($is_included_mode)): ?>
     <?php require_once __DIR__ . '/includes/footer.php'; ?>

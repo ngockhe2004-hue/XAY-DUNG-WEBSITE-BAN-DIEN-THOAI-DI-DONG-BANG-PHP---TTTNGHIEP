@@ -60,7 +60,7 @@ function updateCartBadge(count) {
 
 // ===== Format price =====
 function formatVND(n) {
-    return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' ₫';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' VND';
 }
 
 // ===== Wishlist toggle (global) =====

@@ -7,7 +7,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'add') {
         $ten  = trim($_POST['ten_danhmuc'] ?? '');
-        $slug = trim($_POST['slug'] ?? '') ?: generateSlug($ten);
+        $original_slug = trim($_POST['slug'] ?? '') ?: $ten;
+        $slug = getUniqueSlug('danhmuc', $original_slug);
         $mota = trim($_POST['mo_ta'] ?? '');
         $thu_tu = (int)($_POST['thu_tu'] ?? 0);
         if ($ten) {
@@ -23,7 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'edit') {
         $id   = (int)$_POST['id'];
         $ten  = trim($_POST['ten_danhmuc'] ?? '');
-        $slug = trim($_POST['slug'] ?? '');
+        $original_slug = trim($_POST['slug'] ?? '') ?: $ten;
+        $slug = getUniqueSlug('danhmuc', $original_slug, 'ma_danhmuc', $id);
         $mota = trim($_POST['mo_ta'] ?? '');
         $thu_tu = (int)($_POST['thu_tu'] ?? 0);
         if ($id && $ten) {
@@ -39,12 +41,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     elseif ($action === 'delete') {
         $id = (int)$_POST['id'];
-        $used = db()->fetchColumn("SELECT COUNT(*) FROM sanpham WHERE ma_danhmuc=?", [$id]);
-        if ($used > 0) {
-            setFlash('error', "Không thể xóa! Danh mục đang có $used sản phẩm.");
-        } else {
-            db()->execute("DELETE FROM danhmuc WHERE ma_danhmuc=?", [$id]);
-            setFlash('success', 'Đã xóa danh mục!');
+        
+        try {
+            // Chỉ chặn xóa nếu có sản phẩm ĐANG HOẠT ĐỘNG hoặc TẠM ẨN (is_active >= 0)
+            // Các sản phẩm ĐÃ XÓA MỀM (is_active = -1) sẽ được tự động gỡ liên kết bởi Database (SET NULL)
+            $usedInProducts = db()->fetchColumn("SELECT COUNT(*) FROM sanpham WHERE ma_danhmuc=? AND is_active >= 0", [$id]);
+            $usedInMapping  = db()->fetchColumn("
+                SELECT COUNT(*) FROM sanpham_danhmuc spdm 
+                JOIN sanpham sp ON spdm.ma_sanpham = sp.ma_sanpham 
+                WHERE spdm.ma_danhmuc=? AND sp.is_active >= 0", [$id]);
+            
+            $totalActiveUsed = $usedInProducts + $usedInMapping;
+            
+            if ($totalActiveUsed > 0) {
+                setFlash('error', "Không thể xóa! Danh mục này đang được gán cho $totalActiveUsed sản phẩm đang hoạt động. Hãy gỡ danh mục khỏi các sản phẩm này trước.");
+            } else {
+                db()->execute("DELETE FROM sanpham_danhmuc WHERE ma_danhmuc=?", [$id]);
+                db()->execute("DELETE FROM danhmuc WHERE ma_danhmuc=?", [$id]);
+                setFlash('success', 'Đã xóa danh mục thành công!');
+            }
+        } catch (Exception $e) {
+            setFlash('error', 'Lỗi hệ thống không thể xóa: ' . $e->getMessage());
         }
     }
     redirect(BASE_URL . '/admin/product_settings.php?tab=categories');
@@ -58,9 +75,17 @@ if (!isset($is_included_mode)) {
 
 
 $categories = db()->fetchAll("
-    SELECT dm.*, COUNT(sp.ma_sanpham) as so_sanpham
-    FROM danhmuc dm LEFT JOIN sanpham sp ON dm.ma_danhmuc = sp.ma_danhmuc
-    GROUP BY dm.ma_danhmuc ORDER BY dm.thu_tu ASC, dm.ma_danhmuc ASC
+    SELECT dm.*, 
+        (SELECT COUNT(DISTINCT combined.ma_sanpham) FROM (
+            SELECT ma_sanpham, ma_danhmuc FROM sanpham WHERE is_active >= 0
+            UNION ALL
+            SELECT spdm.ma_sanpham, spdm.ma_danhmuc 
+            FROM sanpham_danhmuc spdm
+            JOIN sanpham sp ON spdm.ma_sanpham = sp.ma_sanpham
+            WHERE sp.is_active >= 0
+        ) as combined WHERE combined.ma_danhmuc = dm.ma_danhmuc) as so_sanpham
+    FROM danhmuc dm
+    ORDER BY dm.thu_tu ASC, dm.ma_danhmuc ASC
 ");
 ?>
 

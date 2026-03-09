@@ -17,6 +17,7 @@ $flash = getFlash();
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="<?= BASE_URL ?>/assets/images/favicon.png">
 </head>
 <body>
 
@@ -94,6 +95,8 @@ $flash = getFlash();
             </li>
             <?php endforeach; ?>
             <li><a href="<?= BASE_URL ?>/products.php?sale=1" class="sale-link">🔥 Sale</a></li>
+            <li><a href="<?= BASE_URL ?>/gioi-thieu.php" <?= basename($_SERVER['PHP_SELF']) == 'gioi-thieu.php' ? 'class="active"' : '' ?>>Giới thiệu</a></li>
+            <li><a href="<?= BASE_URL ?>/lien-he.php" <?= basename($_SERVER['PHP_SELF']) == 'lien-he.php' ? 'class="active"' : '' ?>>Liên hệ</a></li>
         </ul>
     </div>
 </nav>

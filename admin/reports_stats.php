@@ -283,13 +283,13 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Doanh thu (VND)',
                 data: <?= json_encode($revenueData) ?>,
-                borderColor: '#d70018',
-                backgroundColor: 'rgba(215, 0, 24, 0.1)',
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 fill: true,
                 tension: 0.4,
                 borderWidth: 3,
                 pointBackgroundColor: '#fff',
-                pointBorderColor: '#d70018',
+                pointBorderColor: '#3b82f6',
                 pointBorderWidth: 2,
                 pointRadius: 4
             }, {

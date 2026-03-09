@@ -13,7 +13,12 @@ $statusLabels=['cho_xac_nhan'=>'Chờ XN','da_xac_nhan'=>'Đã XN','dang_dong_go
 <div style="display:flex;gap:20px;align-items:start;">
     <div style="flex:2;">
         <div class="page-header" style="margin-bottom:16px;">
-            <div><h1 class="page-title"><?= sanitize($order['ma_donhang_code']) ?></h1></div>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <h1 class="page-title"><?= sanitize($order['ma_donhang_code']) ?></h1>
+                <a href="<?= BASE_URL ?>/admin/print_invoice.php?id=<?= $id ?>" target="_blank" class="btn btn-outline" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                    🖨️ In hóa đơn
+                </a>
+            </div>
             <form method="POST" action="<?= BASE_URL ?>/admin/orders.php" style="display:flex;gap:8px;">
                 <input type="hidden" name="action" value="update_status">
                 <input type="hidden" name="id" value="<?= $id ?>">

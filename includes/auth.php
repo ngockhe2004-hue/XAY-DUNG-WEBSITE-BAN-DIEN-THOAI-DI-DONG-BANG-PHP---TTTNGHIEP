@@ -101,6 +101,16 @@ function register($data): array {
          sanitize($data['hovaten'] ?? ''), sanitize($data['sdt'] ?? ''),
          sanitize($data['dia_chi'] ?? '')]
     );
+
+    // Nếu đăng ký thành công và có địa chỉ, tự động tạo một bản ghi địa chỉ mặc định trong diachi_user
+    if ($id && !empty($data['dia_chi'])) {
+        db()->insert(
+            "INSERT INTO diachi_user (ma_user, ho_ten_nguoinhan, SDT_nguoinhan, tinh_thanh, quan_huyen, phuong_xa, dia_chi_cu_the, la_macdinh) 
+             VALUES (?,?,?,?,?,?,?,?)",
+            [$id, sanitize($data['hovaten'] ?? $data['ten_user']), sanitize($data['sdt'] ?? ''), 'Chưa xác định', 'Chưa xác định', 'Chưa xác định', sanitize($data['dia_chi']), 1]
+        );
+    }
+
     return $id ? ['success' => true, 'user_id' => $id]
                : ['success' => false, 'message' => 'Đăng ký thất bại'];
 }

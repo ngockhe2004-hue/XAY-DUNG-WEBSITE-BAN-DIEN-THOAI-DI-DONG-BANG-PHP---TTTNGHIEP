@@ -20,7 +20,7 @@ $coupon = db()->fetchOne("
 
 if (!$coupon) jsonOut(['success'=>false,'message'=>'Mã không hợp lệ hoặc đã hết hạn']);
 if ($total < $coupon['don_toi_thieu']) {
-    jsonOut(['success'=>false,'message'=>'Đơn hàng cần tối thiểu ' . number_format($coupon['don_toi_thieu'],0,',','.') . '₫ để áp dụng mã này']);
+    jsonOut(['success'=>false,'message'=>'Đơn hàng cần tối thiểu ' . number_format($coupon['don_toi_thieu'],0,',','.') . ' VND để áp dụng mã này']);
 }
 
 // Check user already used
@@ -42,5 +42,5 @@ jsonOut([
     'success'   => true,
     'coupon_id' => $coupon['ma_km'],
     'discount'  => round($discount),
-    'message'   => "Giảm " . number_format($discount,0,',','.') . "₫ với mã {$code}"
+    'message'   => "Giảm " . number_format($discount,0,',','.') . " VND với mã {$code}"
 ]);

@@ -37,8 +37,14 @@ if (isLoggedIn()) {
 // Biến thể
 $variants = db()->fetchAll("SELECT * FROM bienthe_sanpham WHERE ma_sanpham = ? AND is_active = 1 ORDER BY ram_gb, rom_gb", [$id]);
 
-// Hình ảnh (kèm ma_bienthe để filter theo biến thể)
-$images = db()->fetchAll("SELECT h.*, b.mau_sac as variant_color FROM hinhanh_sanpham h LEFT JOIN bienthe_sanpham b ON h.ma_bienthe = b.ma_bienthe WHERE h.ma_sanpham = ? ORDER BY h.la_anh_chinh DESC, h.thu_tu ASC", [$id]);
+// Hình ảnh (Ưu tiên ảnh biến thể lên trước, sau đó đến ảnh chính, cuối cùng là thứ tự thu_tu)
+$images = db()->fetchAll("
+    SELECT h.*, b.mau_sac as variant_color 
+    FROM hinhanh_sanpham h 
+    LEFT JOIN bienthe_sanpham b ON h.ma_bienthe = b.ma_bienthe 
+    WHERE h.ma_sanpham = ? 
+    ORDER BY (h.ma_bienthe IS NULL) ASC, h.la_anh_chinh DESC, h.thu_tu ASC
+", [$id]);
 
 // Đánh giá
 $reviews = db()->fetchAll("
@@ -114,6 +120,364 @@ $imagesByColorJson = json_encode($imagesByColor, JSON_UNESCAPED_UNICODE | JSON_U
 $allImagesJson     = json_encode(array_map(fn($img) => BASE_URL.'/uploads/products/'.basename($img['image_url']), $images), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 ?>
 
+<style>
+/* Premium Aesthetics Redesign */
+.product-detail-grid {
+    display: grid;
+    grid-template-columns: 4fr 6fr; /* Thu nhỏ cột ảnh, mở rộng cột thông tin */
+    gap: 40px;
+    align-items: start;
+}
+@media (max-width: 991px) {
+    .product-detail-grid { grid-template-columns: 1fr; gap: 40px; }
+}
+.gallery-main {
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+    padding: 0;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 450px; /* Cố định chiều cao vừa phải */
+}
+.gallery-main img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* Ảnh luôn vừa vặn không bị cắt xén */
+}
+.gallery-thumbs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.gallery-thumbs .thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #e2e8f0;
+    opacity: 0.6;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.gallery-thumbs .thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+.gallery-thumbs .thumb:hover {
+    opacity: 1;
+    border-color: #cbd5e1;
+}
+.gallery-thumbs .thumb.active {
+    border-color: #ef4444; /* Màu viền đỏ/cam như chuẩn TMĐT */
+    opacity: 1;
+}
+.product-info {
+    padding: 0; /* Bỏ padding thừa như ảnh mẫu */
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+}
+.product-info h1 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #444;
+    margin-bottom: 20px;
+}
+.product-price-section {
+    display: flex;
+    align-items: flex-end;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.price-current {
+    font-size: 28px;
+    font-weight: 800;
+    color: #d70018; /* Màu đỏ đâm đặc trưng */
+}
+.price-original {
+    font-size: 16px;
+    text-decoration: line-through;
+    color: #707070;
+    margin-bottom: 4px;
+}
+.price-discount {
+    background: #d70018;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.variant-section {
+    margin-bottom: 15px;
+}
+.variant-label {
+    font-size: 14px;
+    color: #444;
+    margin-bottom: 8px;
+    display: inline-block;
+    width: 80px;
+}
+.variant-label strong {
+    color: #000;
+    font-weight: 600;
+    display: none; /* Ẩn chữ đậm bên cạnh đi để giống mẫu */
+}
+.variant-options-container {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.color-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    color: #444;
+    font-size: 13px;
+    transition: all 0.2s;
+    cursor: pointer;
+    box-shadow: none;
+    height: auto;
+    width: auto;
+}
+.color-btn-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+}
+.color-btn:hover {
+    border-color: #d70018;
+    transform: none;
+}
+.color-btn.active {
+    border-color: #d70018;
+    color: #d70018;
+    transform: none;
+    box-shadow: none;
+    position: relative;
+}
+.color-btn.active::before {
+    content: "✓";
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    background: #d70018;
+    color: white;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 0 0 0 4px;
+}
+.spec-btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    color: #444;
+    font-size: 13px;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+.spec-btn:hover {
+    border-color: #d70018;
+    color: #d70018;
+    background: white;
+    box-shadow: none;
+}
+.spec-btn.active {
+    background: white;
+    color: #d70018;
+    border-color: #d70018;
+    box-shadow: none;
+}
+.spec-btn.active::before {
+    content: "✓";
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    background: #d70018;
+    color: white;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 0 0 0 4px;
+}
+#btnBuyNow {
+    background: linear-gradient(180deg, #f52f32, #e11b1e);
+    border: none;
+    box-shadow: none;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 14px;
+    width: 100%;
+    color: white;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+#btnBuyNow:hover {
+    background: linear-gradient(180deg, #e11b1e, #c71619);
+    transform: none;
+    box-shadow: none;
+}
+#btnAddCart {
+    background: white;
+    border: 1px solid #288ad6;
+    color: #288ad6;
+    box-shadow: none;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 14px;
+    transition: all 0.2s;
+    cursor: pointer;
+    text-align: center;
+}
+#btnAddCart:hover {
+    background: #f0f8ff;
+    transform: none;
+}
+#wishlistBtn {
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    color: #666;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 16px;
+}
+#wishlistBtn:hover {
+    background: #f8f8f8;
+    transform: none;
+    box-shadow: none;
+}
+.product-description-content {
+    background: white;
+    border-radius: 24px;
+    padding: 45px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.03);
+    line-height: 1.9;
+    color: #334155;
+    font-size: 16px;
+    border: 1px solid #f1f5f9;
+}
+.product-description-content img {
+    max-width: 100%;
+    border-radius: 16px;
+    margin: 30px 0;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+}
+.product-description-content h2, .product-description-content h3 {
+    color: #0f172a;
+    font-weight: 800;
+    margin-top: 35px;
+    margin-bottom: 20px;
+}
+.specs-table {
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.04);
+    background: white;
+    border-collapse: collapse;
+    width: 100%;
+}
+.specs-table tr {
+    transition: background 0.3s;
+}
+.specs-table tr:hover {
+    background-color: #f1f5f9;
+}
+.specs-table tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+.specs-table td {
+    padding: 20px 30px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #475569;
+    font-size: 15px;
+}
+.specs-table td:first-child {
+    font-weight: 700;
+    color: #1e293b;
+    width: 35%;
+    background-color: transparent;
+}
+.reviews-summary {
+    background: white !important;
+    border-radius: 24px !important;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.04) !important;
+    border: 1px solid #f1f5f9 !important;
+    padding: 40px !important;
+}
+.review-card {
+    background: white !important;
+    border-radius: 20px !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.03) !important;
+    border: 1px solid #f1f5f9 !important;
+    padding: 30px !important;
+    margin-bottom: 24px !important;
+    transition: transform 0.3s, box-shadow 0.3s !important;
+}
+.review-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.06) !important;
+}
+.tab-btn {
+    font-size: 17px;
+    font-weight: 700;
+    padding: 16px 36px;
+    border-radius: 100px;
+    color: #64748b;
+    transition: all 0.3s;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.tab-btn:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+.tab-btn.active {
+    color: white;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    box-shadow: 0 10px 25px rgba(30, 41, 59, 0.25);
+}
+.badge-hot-new {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: white;
+    text-transform: uppercase;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+.badge-hot { background: linear-gradient(135deg, #f12711, #f5af19); }
+.badge-new { background: linear-gradient(135deg, #0cebeb, #20e3b2); color: #0f172a;}
+</style>
+
 <div class="container" style="padding-top:24px;padding-bottom:60px;">
     <!-- Breadcrumb -->
     <nav style="font-size:13px;color:var(--text-muted);margin-bottom:24px;">
@@ -151,10 +515,10 @@ $allImagesJson     = json_encode(array_map(fn($img) => BASE_URL.'/uploads/produc
 
         <!-- Product Info -->
         <div class="product-info">
-            <div class="product-brand-row" style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
-                <a href="<?= BASE_URL ?>/products.php?thuonghieu=<?= $product['thuonghieu_slug'] ?>" style="font-size:13px;color:var(--accent);font-weight:600;"><?= sanitize($product['ten_thuonghieu']) ?></a>
-                <?php if ($product['is_noi_bat']): ?><span class="badge badge-yellow">HOT</span><?php endif; ?>
-                <?php if ($product['is_hang_moi']): ?><span class="badge badge-green">MỚI</span><?php endif; ?>
+            <div class="product-brand-row" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+                <a href="<?= BASE_URL ?>/products.php?thuonghieu=<?= $product['thuonghieu_slug'] ?>" style="font-size:14px;color:var(--accent);font-weight:800;letter-spacing:0.5px;text-transform:uppercase;"><?= sanitize($product['ten_thuonghieu']) ?></a>
+                <?php if ($product['is_noi_bat']): ?><span class="badge-hot-new badge-hot">🔥 HOT</span><?php endif; ?>
+                <?php if ($product['is_hang_moi']): ?><span class="badge-hot-new badge-new">✨ MỚI</span><?php endif; ?>
             </div>
             
             <h1><?= sanitize($product['ten_sanpham']) ?></h1>
@@ -192,34 +556,12 @@ $allImagesJson     = json_encode(array_map(fn($img) => BASE_URL.'/uploads/produc
             $defaultRom   = $defaultVariant['rom_gb'] ?? 0;
             ?>
 
-            <!-- Chọn màu -->
-            <?php $colors = array_unique(array_column($variants, 'mau_sac')); ?>
-            <?php if ($colors): ?>
-            <div class="variant-section">
-                <div class="variant-label">Màu sắc: <strong id="selectedColor"><?= sanitize($colors[0]) ?></strong></div>
-                <div class="color-options">
-                    <?php 
-                    $colorMap = [];
-                    foreach ($variants as $v) $colorMap[$v['mau_sac']] = $v['ma_hex_mau'];
-                    foreach ($colors as $i => $color): 
-                        $isActive = ($color === $defaultColor);
-                    ?>
-                    <button class="color-btn <?= $isActive ? 'active' : '' ?>"
-                            style="background:<?= $colorMap[$color] ?: '#6c63ff' ?>;border-color:<?= $isActive?'var(--accent)':'var(--border)' ?>;"
-                            title="<?= sanitize($color) ?>"
-                            onclick="selectColor('<?= sanitize($color) ?>', this)"
-                            data-color="<?= sanitize($color) ?>"></button>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-
             <!-- Chọn RAM -->
             <?php $rams = array_unique(array_column($variants, 'ram_gb')); sort($rams); ?>
             <?php if ($rams): ?>
-            <div class="variant-section">
-                <div class="variant-label">RAM: <strong id="selectedRam"><?= $defaultRam ?>GB</strong></div>
-                <div class="ram-options">
+            <div class="variant-section" style="display:flex; align-items:flex-start;">
+                <div class="variant-label">RAM: </div>
+                <div class="variant-options-container">
                     <?php foreach ($rams as $ram): 
                         $isActive = (int)$ram === (int)$defaultRam;
                     ?>
@@ -232,9 +574,9 @@ $allImagesJson     = json_encode(array_map(fn($img) => BASE_URL.'/uploads/produc
             <!-- Chọn ROM -->
             <?php $roms = array_unique(array_column($variants, 'rom_gb')); sort($roms); ?>
             <?php if ($roms): ?>
-            <div class="variant-section">
-                <div class="variant-label">Bộ nhớ: <strong id="selectedRom"><?= $defaultRom >= 1024 ? ($defaultRom/1024).'TB' : $defaultRom.'GB' ?></strong></div>
-                <div class="rom-options">
+            <div class="variant-section" style="display:flex; align-items:flex-start;">
+                <div class="variant-label">Dung lượng: </div>
+                <div class="variant-options-container">
                     <?php foreach ($roms as $rom): 
                         $isActive = (int)$rom === (int)$defaultRom;
                     ?>
@@ -244,31 +586,56 @@ $allImagesJson     = json_encode(array_map(fn($img) => BASE_URL.'/uploads/produc
             </div>
             <?php endif; ?>
 
-            <!-- Số lượng -->
-            <div class="variant-section">
-                <div class="variant-label">Số lượng: <span id="stockInfo" style="color:var(--success)">Còn hàng</span></div>
-                <div class="qty-selector">
-                    <button class="qty-btn" onclick="changeQty(-1)">−</button>
-                    <input type="number" class="qty-input" id="qtyInput" value="1" min="1" max="99" readonly>
-                    <button class="qty-btn" onclick="changeQty(1)">+</button>
+            <!-- Chọn màu -->
+            <?php $colors = array_unique(array_column($variants, 'mau_sac')); ?>
+            <?php if ($colors): ?>
+            <div class="variant-section" style="display:flex; align-items:flex-start;">
+                <div class="variant-label">Màu sắc: <strong id="selectedColor"><?= sanitize($colors[0]) ?></strong></div>
+                <div class="variant-options-container">
+                    <?php 
+                    $colorMap = [];
+                    foreach ($variants as $v) $colorMap[$v['mau_sac']] = $v['ma_hex_mau'];
+                    foreach ($colors as $i => $color): 
+                        $isActive = ($color === $defaultColor);
+                    ?>
+                    <button class="color-btn <?= $isActive ? 'active' : '' ?>"
+                            title="<?= sanitize($color) ?>"
+                            onclick="selectColor('<?= sanitize($color) ?>', this)"
+                            data-color="<?= sanitize($color) ?>">
+                            <?= sanitize($color) ?>
+                    </button>
+                    <?php endforeach; ?>
                 </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Số lượng -->
+            <div style="display:flex; align-items:center; gap:15px; margin-bottom: 20px;">
+                <div style="font-size:14px;color:#444;">Số lượng:</div>
+                <div class="qty-selector" style="display:flex; border:1px solid #e0e0e0; border-radius:4px; overflow:hidden; width: 100px;">
+                    <button class="qty-btn" onclick="changeQty(-1)" style="flex:1; border:none; background:#f8f9fa; cursor:pointer;">−</button>
+                    <input type="number" class="qty-input" id="qtyInput" value="1" min="1" max="99" readonly style="flex:1.5; border:none; border-left:1px solid #e0e0e0; border-right:1px solid #e0e0e0; text-align:center; outline:none; font-size:14px;">
+                    <button class="qty-btn" onclick="changeQty(1)" style="flex:1; border:none; background:#f8f9fa; cursor:pointer;">+</button>
+                </div>
+                <div id="stockInfo" style="font-size:13px; color:#28a745;">Còn hàng</div>
             </div>
 
             <!-- Actions -->
-            <div class="product-actions">
-                <button class="btn btn-primary" id="btnAddCart" onclick="addToCartDetail()" style="flex:2;">
-                    🛒 Thêm Vào Giỏ Hàng
-                </button>
-                <button class="btn btn-outline" onclick="toggleWishlist(this, <?= $id ?>)" 
-                        id="wishlistBtn"
-                        style="flex:0 0 auto;padding:12px 18px;font-size:20px;">
-                    <?= $isWished ? '❤️' : '♡' ?>
+            <div style="margin-bottom: 10px;">
+                <button id="btnBuyNow" onclick="buyNow()">
+                    <div>MUA NGAY</div>
+                    <div style="font-size:12px; font-weight:normal; text-transform:none; margin-top:2px;">Giao tận nơi hoặc nhận tại cửa hàng</div>
                 </button>
             </div>
             
-            <button class="btn btn-success btn-block" id="btnBuyNow" onclick="buyNow()" style="margin-bottom:20px;">
-                ⚡ Mua Ngay
-            </button>
+            <div style="display:flex; gap:10px; margin-bottom: 20px;">
+                <button id="btnAddCart" onclick="addToCartDetail()" style="flex:1;">
+                    🛒 Thêm Vào Giỏ
+                </button>
+                <button id="wishlistBtn" onclick="toggleWishlist(this, <?= $id ?>)">
+                    <?= $isWished ? '❤️' : '♡' ?>
+                </button>
+            </div>
 
             <!-- Tags -->
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;font-size:13px;color:var(--text-muted);">
@@ -324,13 +691,13 @@ $allImagesJson     = json_encode(array_map(fn($img) => BASE_URL.'/uploads/produc
         </div>
 
         <div id="tab-mo-ta" class="tab-content active">
-            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;line-height:1.8;color:var(--text-secondary);">
-                <?= nl2br(sanitize($product['mo_ta_day_du'] ?: $product['mo_ta_ngan'] ?: 'Chưa có mô tả.')) ?>
+            <div class="product-description-content">
+                <?= $product['mo_ta_day_du'] ? $product['mo_ta_day_du'] : nl2br(sanitize($product['mo_ta_ngan'] ?: 'Chưa có mô tả chi tiết.')) ?>
             </div>
         </div>
 
         <div id="tab-thong-so" class="tab-content">
-            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+            <div class="specs-table-wrapper" style="border-radius:24px;overflow:hidden;border:1px solid #f1f5f9;">
                 <table class="specs-table">
                     <tbody>
                         <?php
@@ -395,7 +762,7 @@ $allImagesJson     = json_encode(array_map(fn($img) => BASE_URL.'/uploads/produc
 
             <!-- Review form -->
             <?php if (isCustomer()): ?>
-            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:24px;">
+            <div style="background:white;border:1px solid #f1f5f9;border-radius:24px;padding:35px;margin-bottom:30px;box-shadow:0 15px 40px rgba(0,0,0,0.03);">
                 <h4 style="margin-bottom:16px;">✍️ Viết Đánh Giá</h4>
                 <form onsubmit="submitReview(event, <?= $id ?>)">
                     <div style="margin-bottom:16px;">
@@ -488,7 +855,7 @@ function updatePrice() {
     const stockEl = document.getElementById('stockInfo');
     const btn     = document.getElementById('btnAddCart');
     if (v) {
-        priceEl.textContent = new Intl.NumberFormat('vi-VN').format(v.gia) + ' ₫';
+        priceEl.textContent = new Intl.NumberFormat('vi-VN').format(v.gia) + ' VND';
         const inStock = parseInt(v.ton_kho) > 0;
         stockEl.textContent = inStock ? 'Còn ' + v.ton_kho + ' sản phẩm' : 'Hết hàng';
         stockEl.style.color = inStock ? 'var(--success)' : 'var(--danger)';

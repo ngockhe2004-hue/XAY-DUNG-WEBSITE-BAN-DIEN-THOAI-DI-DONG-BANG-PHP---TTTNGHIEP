@@ -145,13 +145,22 @@ $payMethodLabels = [
     </div>
 </div>
 
-<!-- Filter Bar -->
-<div class="section-card" style="margin-bottom: 30px; padding: 20px;">
-    <form method="GET" class="filter-bar" style="margin-bottom: 0;">
+<!-- Modern Filter Bar -->
+<div class="animate-fade-up" style="margin-bottom: 30px;">
+    <form method="GET" class="filter-bar">
         <input type="hidden" name="tt" value="<?= sanitize($tt) ?>">
-        <input type="text" name="q" class="form-control" placeholder="🔍 Tìm theo Mã đơn hàng hoặc Tên khách hàng..." value="<?= sanitize($q) ?>" style="flex: 2;">
-        <button type="submit" class="btn btn-primary">TÌM KIẾM</button>
-        <a href="sales_management.php?tab=orders" class="btn btn-outline">LÀM MỚI</a>
+        <div class="search-group">
+            <span class="icon">🔍</span>
+            <input type="text" name="q" class="form-control" placeholder="Tìm theo Mã đơn hàng hoặc Tên khách hàng..." value="<?= sanitize($q) ?>">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn btn-primary btn-filter">
+                <span>TÌM KIẾM</span>
+            </button>
+            <a href="sales_management.php?tab=orders" class="btn btn-outline btn-filter" style="background: #fff;">
+                <span>LÀM MỚI</span>
+            </a>
+        </div>
     </form>
 </div>
 

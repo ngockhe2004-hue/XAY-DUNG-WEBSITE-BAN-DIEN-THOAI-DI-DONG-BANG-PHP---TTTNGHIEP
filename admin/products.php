@@ -24,12 +24,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             db()->execute("UPDATE sanpham SET is_active = -1 WHERE ma_sanpham = ?", [$id]);
             setFlash('success', 'Sản phẩm có đơn hàng liên quan nên đã được ẩn khỏi danh sách.');
         } else {
-            // Nếu không có đơn hàng, xóa cứng (CASCADE sẽ xóa biến thể và ảnh)
-            // Lấy danh sách ảnh để xóa file vật lý
+            // Nếu không có đơn hàng, tiến hành xóa cứng (xóa an toàn theo thứ tự)
+            
+            // 1. Xóa ảnh đang liên kết (vì đã có file vật lý cần xóa tay, bảng có thể tự xóa qua CASCADE, nhưng tốt nhất cứ check)
             $images = db()->fetchAll("SELECT image_url FROM hinhanh_sanpham WHERE ma_sanpham = ?", [$id]);
             foreach ($images as $img) {
                 @unlink(UPLOAD_DIR . $img['image_url']);
             }
+            
+            // 2. Lấy các mã biến thể thuộc sản phẩm này
+            $bienthes = db()->fetchAll("SELECT ma_bienthe FROM bienthe_sanpham WHERE ma_sanpham = ?", [$id]);
+            foreach ($bienthes as $bt) {
+                // Xóa chi tiết giỏ hàng đang tham chiếu tới biến thể (Làm rõ lỗi 1451 Cannot delete or update a parent row)
+                db()->execute("DELETE FROM chitiet_giohang WHERE ma_bienthe = ?", [$bt['ma_bienthe']]);
+			}
+            
+            // 3. Xóa các biến thể
+            db()->execute("DELETE FROM bienthe_sanpham WHERE ma_sanpham = ?", [$id]);
+            
+            // 4. Xóa liên kết danh mục
+            db()->execute("DELETE FROM sanpham_danhmuc WHERE ma_sanpham = ?", [$id]);
+
+            // 5. Cuối cùng, xóa sản phẩm gốc
             db()->execute("DELETE FROM sanpham WHERE ma_sanpham = ?", [$id]);
             setFlash('success', 'Đã xóa hoàn toàn sản phẩm.');
         }
@@ -62,9 +78,15 @@ $products = db()->fetchAll("
            (SELECT image_url FROM hinhanh_sanpham h WHERE h.ma_sanpham = sp.ma_sanpham AND h.la_anh_chinh = 1 LIMIT 1) as anh,
            (SELECT MIN(gia) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham AND is_active=1) as gia_min,
            (SELECT SUM(ton_kho) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham AND is_active=1) as ton_kho_total,
-           (SELECT COUNT(*) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham) as so_bienthe
+           (SELECT COUNT(*) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham) as so_bienthe,
+           (SELECT COALESCE(SUM(ct.so_luong), 0) 
+            FROM chitiet_donhang ct 
+            JOIN bienthe_sanpham b ON ct.ma_bienthe = b.ma_bienthe 
+            JOIN donhang dh ON ct.ma_donhang = dh.ma_donhang 
+            WHERE b.ma_sanpham = sp.ma_sanpham 
+            AND dh.trang_thai NOT IN ('da_huy', 'da_tra_hang')) as tong_da_ban
     FROM sanpham sp
-    JOIN danhmuc dm ON sp.ma_danhmuc = dm.ma_danhmuc
+    LEFT JOIN danhmuc dm ON sp.ma_danhmuc = dm.ma_danhmuc
     JOIN thuonghieu th ON sp.ma_thuonghieu = th.ma_thuonghieu
     WHERE $whereSQL ORDER BY sp.ngay_lap DESC
     LIMIT {$paging['per_page']} OFFSET {$paging['offset']}
@@ -84,19 +106,28 @@ $brands     = db()->fetchAll("SELECT * FROM thuonghieu WHERE is_active = 1 ORDER
     </a>
 </div>
 
-<!-- Advanced Filter Bar -->
-<div class="section-card" style="margin-bottom: 30px; padding: 20px;">
-    <form method="GET" class="filter-bar" style="margin-bottom: 0;">
-        <input type="text" name="q" class="form-control" placeholder="🔍 Tìm kiếm theo tên sản phẩm..." value="<?= sanitize($q) ?>" style="flex: 2; min-width: 300px;">
-        <select name="cat" class="form-control" style="flex: 1;">
-            <option value="">📁 Tất cả danh mục</option>
-            <?php foreach ($categories as $c): ?>
-            <option value="<?= $c['ma_danhmuc'] ?>" <?= $catFilter == $c['ma_danhmuc'] ? 'selected' : '' ?>><?= sanitize($c['ten_danhmuc']) ?></option>
-            <?php endforeach; ?>
-        </select>
+<!-- Modern Filter Bar -->
+<div class="animate-fade-up" style="margin-bottom: 30px;">
+    <form method="GET" class="filter-bar">
+        <div class="search-group" style="flex: 3;">
+            <span class="icon">🔍</span>
+            <input type="text" name="q" class="form-control" placeholder="Tìm kiếm theo tên sản phẩm..." value="<?= sanitize($q) ?>">
+        </div>
+        <div class="filter-select-group">
+            <select name="cat" class="form-control">
+                <option value="">📁 Tất cả danh mục</option>
+                <?php foreach ($categories as $c): ?>
+                <option value="<?= $c['ma_danhmuc'] ?>" <?= $catFilter == $c['ma_danhmuc'] ? 'selected' : '' ?>><?= sanitize($c['ten_danhmuc']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
         <div style="display: flex; gap: 10px;">
-            <button type="submit" class="btn btn-primary">LỌC DỮ LIỆU</button>
-            <a href="<?= BASE_URL ?>/admin/product_settings.php?tab=products" class="btn btn-outline">RESET</a>
+            <button type="submit" class="btn btn-primary btn-filter">
+                <span>LỌC DỮ LIỆU</span>
+            </button>
+            <a href="<?= BASE_URL ?>/admin/product_settings.php?tab=products" class="btn btn-outline btn-filter" style="background: #fff;">
+                <span>RESET</span>
+            </a>
         </div>
     </form>
 </div>
@@ -131,7 +162,7 @@ $brands     = db()->fetchAll("SELECT * FROM thuonghieu WHERE is_active = 1 ORDER
                         </div>
                     </td>
                     <td>
-                        <div style="font-weight: 800; color: var(--txt);"><?= sanitize($p['ten_danhmuc']) ?></div>
+                        <div style="font-weight: 800; color: var(--txt);"><?= !empty($p['ten_danhmuc']) ? sanitize($p['ten_danhmuc']) : '<span style="color:var(--txt3); font-style:italic;">Chưa phân loại</span>' ?></div>
                         <div style="font-size: 11px; font-weight: 700; color: var(--txt3);"><?= sanitize($p['ten_thuonghieu']) ?></div>
                     </td>
                     <td style="font-weight: 900; color: var(--accent); font-size: 15px;">

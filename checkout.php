@@ -147,6 +147,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             db()->commit();
+            
+            // XỬ LÝ THANH TOÁN VNPay
+            if ($phuongThucTT === 'vnpay') {
+                require_once __DIR__ . '/config/vnpay_config.php';
+                require_once __DIR__ . '/includes/vnpay_helper.php';
+                
+                $vnp_Url = createVNPayUrl($maCode, $tongThanhToan, "Thanh toan don hang " . $maCode);
+                redirect($vnp_Url);
+            }
+
             // Redirect TRƯỚC khi xuất HTML - bây giờ hoạt động đúng
             redirect(BASE_URL . '/order_success.php?id=' . $maOrder);
 
@@ -160,6 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Lấy thông tin user và địa chỉ đã lưu
 $user = getCurrentUser();
 $addresses = db()->fetchAll("SELECT * FROM diachi_user WHERE ma_user = ? ORDER BY la_macdinh DESC", [$userId]);
+$defaultAddr = !empty($addresses) ? $addresses[0] : null;
 
 // ============================================================
 // CHỈ SAU KHI XỬ LÝ XONG MỚI LOAD HEADER (xuất HTML)
@@ -200,35 +211,35 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="form-group">
                         <label class="form-label">Họ và tên *</label>
                         <input type="text" name="ten_nguoi_nhan" class="form-control" required
-                               value="<?= sanitize($_POST['ten_nguoi_nhan'] ?? $user['hovaten'] ?? '') ?>" placeholder="Người nhận hàng">
+                               value="<?= sanitize($_POST['ten_nguoi_nhan'] ?? $defaultAddr['ho_ten_nguoinhan'] ?? $user['hovaten'] ?? '') ?>" placeholder="Người nhận hàng">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Số điện thoại *</label>
                         <input type="tel" name="sdt" class="form-control" required
-                               value="<?= sanitize($_POST['sdt'] ?? $user['SDT'] ?? '') ?>" placeholder="09xxxxxxxx">
+                               value="<?= sanitize($_POST['sdt'] ?? $defaultAddr['SDT_nguoinhan'] ?? $user['SDT'] ?? '') ?>" placeholder="09xxxxxxxx">
                     </div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                     <div class="form-group">
                         <label class="form-label">Tỉnh/Thành *</label>
-                        <input type="text" name="tinh_thanh" class="form-control" required
-                               value="<?= sanitize($_POST['tinh_thanh'] ?? '') ?>" placeholder="TP. Hồ Chí Minh">
+                        <select name="tinh_thanh" id="checkout_tinh_thanh" class="form-control" required></select>
+                        <input type="hidden" id="pending_tinh" value="<?= sanitize($_POST['tinh_thanh'] ?? $defaultAddr['tinh_thanh'] ?? '') ?>">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Quận/Huyện</label>
-                        <input type="text" name="quan_huyen" class="form-control"
-                               value="<?= sanitize($_POST['quan_huyen'] ?? '') ?>" placeholder="Quận 1">
+                        <select name="quan_huyen" id="checkout_quan_huyen" class="form-control" required></select>
+                        <input type="hidden" id="pending_quan" value="<?= sanitize($_POST['quan_huyen'] ?? $defaultAddr['quan_huyen'] ?? '') ?>">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Phường/Xã</label>
-                        <input type="text" name="phuong_xa" class="form-control"
-                               value="<?= sanitize($_POST['phuong_xa'] ?? '') ?>" placeholder="Phường Bến Nghé">
+                        <select name="phuong_xa" id="checkout_phuong_xa" class="form-control" required></select>
+                        <input type="hidden" id="pending_phuong" value="<?= sanitize($_POST['phuong_xa'] ?? $defaultAddr['phuong_xa'] ?? '') ?>">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Địa chỉ cụ thể *</label>
                     <input type="text" name="dia_chi_cu_the" class="form-control" required
-                           value="<?= sanitize($_POST['dia_chi_cu_the'] ?? '') ?>" placeholder="Số nhà, tên đường...">
+                           value="<?= sanitize($_POST['dia_chi_cu_the'] ?? $defaultAddr['dia_chi_cu_the'] ?? '') ?>" placeholder="Số nhà, tên đường...">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Ghi chú</label>
@@ -307,6 +318,24 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <script>
+let checkoutSelector;
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkoutSelector = initAddressSelector({
+        provinceSelector: '#checkout_tinh_thanh',
+        districtSelector: '#checkout_quan_huyen',
+        wardSelector: '#checkout_phuong_xa'
+    });
+
+    // Fill initial values if any
+    const pTinh = document.getElementById('pending_tinh').value;
+    const pQuan = document.getElementById('pending_quan').value;
+    const pPhuong = document.getElementById('pending_phuong').value;
+    if (pTinh) {
+        checkoutSelector.setValues(pTinh, pQuan, pPhuong);
+    }
+});
+
 function selectPayment(el) {
     document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('selected'));
     el.classList.add('selected');
@@ -315,10 +344,11 @@ function selectPayment(el) {
 function fillAddress(addr) {
     document.querySelector('[name=ten_nguoi_nhan]').value = addr.ho_ten_nguoinhan || '';
     document.querySelector('[name=sdt]').value = addr.SDT_nguoinhan || '';
-    document.querySelector('[name=tinh_thanh]').value = addr.tinh_thanh || '';
-    document.querySelector('[name=quan_huyen]').value = addr.quan_huyen || '';
-    document.querySelector('[name=phuong_xa]').value = addr.phuong_xa || '';
     document.querySelector('[name=dia_chi_cu_the]').value = addr.dia_chi_cu_the || '';
+    
+    if (checkoutSelector) {
+        checkoutSelector.setValues(addr.tinh_thanh, addr.quan_huyen, addr.phuong_xa);
+    }
 }
 </script>
 

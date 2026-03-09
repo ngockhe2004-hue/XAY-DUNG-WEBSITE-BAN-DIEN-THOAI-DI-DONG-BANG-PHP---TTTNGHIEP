@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'PhoneStore - Điện Thoại Chính Hãng, Giá Tốt';
+$pageTitle = 'Phonestore - Điện Thoại Chính Hãng, Giá Tốt';
 $pageDesc  = 'Mua điện thoại chính hãng Apple, Samsung, Xiaomi, OPPO - Giá tốt nhất, bảo hành uy tín, giao hàng nhanh';
 require_once __DIR__ . '/includes/header.php';
 

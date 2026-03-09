@@ -1,9 +1,10 @@
 <?php
+ob_start(); // Bật output buffering để tránh lỗi headers already sent
 // ============================================================
 // CONFIG CHUNG - WEBSITE BÁN ĐIỆN THOẠI
 // ============================================================
 
-define('SITE_NAME', 'PhoneStore - Điện Thoại Chính Hãng');
+define('SITE_NAME', 'Phonestore - Điện Thoại Chính Hãng');
 define('BASE_URL', 'http://localhost/website%20bandienthoai');
 define('ADMIN_EMAIL', 'admin@bandienthoai.vn');
 
@@ -35,7 +36,7 @@ date_default_timezone_set('Asia/Ho_Chi_Minh');
 
 // Helper: Format tiền VNĐ
 function formatPrice($price) {
-    return number_format($price, 0, ',', '.') . ' ₫';
+    return number_format($price, 0, ',', '.') . ' VND';
 }
 
 // Helper: Sanitize input
@@ -85,6 +86,39 @@ function generateSlug($string) {
     $string = preg_replace('/[^a-z0-9\s-]/', '', $string);
     $string = preg_replace('/[\s-]+/', '-', $string);
     return trim($string, '-');
+}
+
+/**
+ * Tạo slug duy nhất trong một bảng
+ * @param string $table Tên bảng (sanpham, danhmuc, ...)
+ * @param string $string Chuỗi gốc (tên sản phẩm, tên danh mục)
+ * @param string $idColumn Tên cột ID để loại trừ bản ghi hiện tại khi update
+ * @param int|null $idValue Giá trị ID để loại trừ
+ * @return string Slug duy nhất
+ */
+function getUniqueSlug($table, $string, $idColumn = null, $idValue = null) {
+    $slug = generateSlug($string);
+    $originalSlug = $slug;
+    $count = 1;
+
+    while (true) {
+        $sql = "SELECT COUNT(*) FROM $table WHERE slug = ?";
+        $params = [$slug];
+
+        if ($idColumn && $idValue) {
+            $sql .= " AND $idColumn != ?";
+            $params[] = $idValue;
+        }
+
+        $exists = db()->fetchColumn($sql, $params);
+
+        if (!$exists) {
+            return $slug;
+        }
+
+        $slug = $originalSlug . '-' . $count;
+        $count++;
+    }
 }
 
 // Helper: Generate order code

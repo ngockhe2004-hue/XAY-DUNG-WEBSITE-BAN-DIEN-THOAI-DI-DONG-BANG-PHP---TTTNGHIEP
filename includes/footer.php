@@ -26,21 +26,21 @@
                     </ul>
                 </div>
                 <div class="f-col-links">
-                    <h4>Thông tin chính sách</h4>
+                    <h4>Giới thiệu</h4>
                     <ul class="f-list">
-                        <li><a href="#">Chính sách bảo hành</a></li>
-                        <li><a href="#">Chính sách đổi trả</a></li>
-                        <li><a href="#">Giao hàng & Thanh toán</a></li>
-                        <li><a href="#">Khui hộp sản phẩm</a></li>
+                        <li><a href="<?= BASE_URL ?>/gioi-thieu.php">Về PhoneStore</a></li>
+                        <li><a href="<?= BASE_URL ?>/gioi-thieu.php#tam-nhin">Tầm nhìn & Sứ mệnh</a></li>
+                        <li><a href="<?= BASE_URL ?>/gioi-thieu.php#cam-ket">Cam kết chất lượng</a></li>
+                        <li><a href="<?= BASE_URL ?>/gioi-thieu.php#chinh-sach">Chính sách chung</a></li>
                     </ul>
                 </div>
                 <div class="f-col-payment">
-                    <h4>Hình thức thanh toán</h4>
-                    <div class="payment-methods">
-                        <img src="https://vnpay.vn/wp-content/uploads/2020/07/Logo-VNPAYQR-update.png" alt="VNPAY" style="height:25px;">
-                        <img src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png" alt="MoMo" style="height:25px;">
-                        <img src="https://static.vecteezy.com/system/resources/previews/020/336/289/non_2x/visa-logo-visa-icon-free-free-vector.jpg" alt="Visa" style="height:25px;">
-                    </div>
+                    <h4>Liên hệ</h4>
+                    <ul class="f-list">
+                        <li><a href="<?= BASE_URL ?>/lien-he.php">Thông tin liên hệ</a></li>
+                        <li><a href="<?= BASE_URL ?>/lien-he.php#ban-do">Bản đồ cửa hàng</a></li>
+                        <li><a href="<?= BASE_URL ?>/lien-he.php#gui-loi-nhan">Gửi lời nhắn</a></li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -59,6 +59,7 @@
 </footer>
 
 <script src="<?= BASE_URL ?>/assets/js/main.js"></script>
+<script src="<?= BASE_URL ?>/assets/js/address_selector.js"></script>
 <script src="<?= BASE_URL ?>/assets/js/cart.js"></script>
 </body>
 </html>

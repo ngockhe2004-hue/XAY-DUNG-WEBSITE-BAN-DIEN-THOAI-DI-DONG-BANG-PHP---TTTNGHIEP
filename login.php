@@ -65,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label class="form-label">Tên đăng nhập hoặc Email</label>
                     <input type="text" name="username" class="form-control" 
                            placeholder="Nhập tên đăng nhập..." 
-                           value="<?= sanitize($_POST['username'] ?? '') ?>" 
-                           required autofocus id="username">
+                           value="<?= isset($_POST['username']) ? sanitize($_POST['username']) : '' ?>" 
+                           required autocomplete="username" id="username">
                 </div>
                 <div class="form-group">
                     <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <!-- Demo credentials hint -->
             <div style="margin-top:20px;padding:14px;background:var(--bg-secondary);border-radius:var(--radius-md);font-size:13px;color:var(--text-muted);">
                 <div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">💡 Tài khoản demo:</div>
-                <div>Admin: <code style="color:var(--accent)">admin</code> / <code style="color:var(--accent)">Admin@123</code></div>
+                <!-- <div>Admin: <code style="color:var(--accent)">admin</code> / <code style="color:var(--accent)">Admin@123</code></div> -->
             </div>
         </div>
     </div>

@@ -11,8 +11,21 @@ $tab    = sanitize($_GET['tab'] ?? 'profile');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'update_profile') {
+        $hovaten = sanitize($_POST['hovaten']);
+        $sdt = sanitize($_POST['sdt']);
+        $diachi = sanitize($_POST['dia_chi']);
+        $gioitinh = sanitize($_POST['gioi_tinh']);
+        $ngaysinh = $_POST['ngay_sinh'] ?: null;
+
         db()->execute("UPDATE users SET hovaten=?, SDT=?, dia_chi=?, gioi_tinh=?, ngay_sinh=? WHERE ma_user=?",
-            [sanitize($_POST['hovaten']), sanitize($_POST['sdt']), sanitize($_POST['dia_chi']), sanitize($_POST['gioi_tinh']), $_POST['ngay_sinh'] ?: null, $userId]);
+            [$hovaten, $sdt, $diachi, $gioitinh, $ngaysinh, $userId]);
+        
+        // Sync to default address if exists
+        $defaultAddrId = db()->fetchColumn("SELECT ma_diachi FROM diachi_user WHERE ma_user=? AND la_macdinh=1", [$userId]);
+        if ($defaultAddrId) {
+            db()->execute("UPDATE diachi_user SET ho_ten_nguoinhan=?, SDT_nguoinhan=?, dia_chi_cu_the=? WHERE ma_diachi=?",
+                [$hovaten, $sdt, $diachi, $defaultAddrId]);
+        }
         setFlash('success','Cập nhật thành công!');
     }
     if ($action === 'change_password') {
@@ -20,9 +33,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash($result['success'] ? 'success' : 'error', $result['message']);
     }
     if ($action === 'add_address') {
-        db()->insert("INSERT INTO diachi_user (ma_user, ho_ten_nguoinhan, SDT_nguoinhan, tinh_thanh, quan_huyen, phuong_xa, dia_chi_cu_the) VALUES (?,?,?,?,?,?,?)",
+        // Reset địa chỉ mặc định cũ
+        db()->execute("UPDATE diachi_user SET la_macdinh = 0 WHERE ma_user = ?", [$userId]);
+        
+        // Thêm địa chỉ mới và đặt làm mặc định
+        db()->insert("INSERT INTO diachi_user (ma_user, ho_ten_nguoinhan, SDT_nguoinhan, tinh_thanh, quan_huyen, phuong_xa, dia_chi_cu_the, la_macdinh) 
+             VALUES (?,?,?,?,?,?,?,1)",
             [$userId, sanitize($_POST['hovaten']), sanitize($_POST['sdt']), sanitize($_POST['tinh_thanh']), sanitize($_POST['quan_huyen']), sanitize($_POST['phuong_xa']), sanitize($_POST['dia_chi_cu_the'])]);
-        setFlash('success','Đã thêm địa chỉ');
+        setFlash('success', 'Đã thêm địa chỉ và đặt làm mặc định');
+    }
+    if ($action === 'edit_address') {
+        $addrId = (int)($_POST['ma_diachi'] ?? 0);
+        db()->execute("UPDATE diachi_user SET ho_ten_nguoinhan=?, SDT_nguoinhan=?, tinh_thanh=?, quan_huyen=?, phuong_xa=?, dia_chi_cu_the=? WHERE ma_diachi=? AND ma_user=?",
+            [sanitize($_POST['hovaten']), sanitize($_POST['sdt']), sanitize($_POST['tinh_thanh']), sanitize($_POST['quan_huyen']), sanitize($_POST['phuong_xa']), sanitize($_POST['dia_chi_cu_the']), $addrId, $userId]);
+        setFlash('success', 'Đã cập nhật địa chỉ');
+    }
+    if ($action === 'delete_address') {
+        $addrId = (int)($_POST['ma_diachi'] ?? 0);
+        // Kiểm tra xem địa chỉ có phải mặc định không
+        $isDefault = db()->fetchColumn("SELECT la_macdinh FROM diachi_user WHERE ma_diachi=? AND ma_user=?", [$addrId, $userId]);
+        
+        db()->execute("DELETE FROM diachi_user WHERE ma_diachi=? AND ma_user=?", [$addrId, $userId]);
+        
+        // Nếu xóa địa chỉ mặc định, set địa chỉ đầu tiên còn lại làm mặc định
+        if ($isDefault) {
+            $nextAddrId = db()->fetchColumn("SELECT ma_diachi FROM diachi_user WHERE ma_user=? LIMIT 1", [$userId]);
+            if ($nextAddrId) {
+                db()->execute("UPDATE diachi_user SET la_macdinh = 1 WHERE ma_diachi = ?", [$nextAddrId]);
+            }
+        }
+        setFlash('success', 'Đã xóa địa chỉ');
+    }
+    if ($action === 'set_default') {
+        $addrId = (int)($_POST['ma_diachi'] ?? 0);
+        db()->execute("UPDATE diachi_user SET la_macdinh = 0 WHERE ma_user = ?", [$userId]);
+        db()->execute("UPDATE diachi_user SET la_macdinh = 1 WHERE ma_diachi = ? AND ma_user = ?", [$addrId, $userId]);
+        setFlash('success', 'Đã đặt địa chỉ mặc định');
     }
     redirect(BASE_URL . '/profile.php?tab=' . $tab);
 }
@@ -124,10 +170,33 @@ $statusBadge =['cho_xac_nhan'=>'warning','da_xac_nhan'=>'info','dang_dong_goi'=>
             <div style="display:flex;flex-direction:column;gap:12px;">
                 <?php foreach ($addresses as $addr): ?>
                 <div class="card" style="padding:16px;display:flex;justify-content:space-between;align-items:center;">
-                    <div style="font-size:14px;">
-                        <strong><?= sanitize($addr['ho_ten_nguoinhan']) ?></strong> · <?= sanitize($addr['SDT_nguoinhan']) ?>
-                        <?php if ($addr['la_macdinh']): ?><span class="badge" style="background:rgba(108,99,255,0.15);color:var(--accent);margin-left:8px;">Mặc định</span><?php endif; ?>
-                        <div style="color:var(--text-secondary);margin-top:4px;"><?= sanitize($addr['dia_chi_cu_the']) ?>, <?= sanitize($addr['phuong_xa']) ?>, <?= sanitize($addr['quan_huyen']) ?>, <?= sanitize($addr['tinh_thanh']) ?></div>
+                    <div style="font-size:14px;flex:1;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <strong><?= sanitize($addr['ho_ten_nguoinhan']) ?></strong> · <?= sanitize($addr['SDT_nguoinhan']) ?>
+                            <?php if ($addr['la_macdinh']): ?>
+                                <span class="badge" style="background:rgba(108,99,255,0.15);color:var(--accent);">Mặc định</span>
+                            <?php endif; ?>
+                        </div>
+                        <div style="color:var(--text-secondary);"><?= sanitize($addr['dia_chi_cu_the']) ?>, <?= sanitize($addr['phuong_xa']) ?>, <?= sanitize($addr['quan_huyen']) ?>, <?= sanitize($addr['tinh_thanh']) ?></div>
+                        
+                        <div style="display:flex;gap:12px;margin-top:12px;">
+                            <button class="btn-text" style="color:var(--accent);font-size:13px;font-weight:600;padding:0;cursor:pointer;background:none;border:none;" 
+                                    onclick='openEditModal(<?= json_encode($addr) ?>)'>✏️ Sửa</button>
+                            
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('Xác nhận xóa địa chỉ này?')">
+                                <input type="hidden" name="action" value="delete_address">
+                                <input type="hidden" name="ma_diachi" value="<?= $addr['ma_diachi'] ?>">
+                                <button type="submit" class="btn-text" style="color:var(--danger);font-size:13px;font-weight:600;padding:0;cursor:pointer;background:none;border:none;">🗑️ Xóa</button>
+                            </form>
+                            
+                            <?php if (!$addr['la_macdinh']): ?>
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="action" value="set_default">
+                                <input type="hidden" name="ma_diachi" value="<?= $addr['ma_diachi'] ?>">
+                                <button type="submit" class="btn-text" style="color:var(--info);font-size:13px;font-weight:600;padding:0;cursor:pointer;background:none;border:none;">📌 Đặt mặc định</button>
+                            </form>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -135,6 +204,7 @@ $statusBadge =['cho_xac_nhan'=>'warning','da_xac_nhan'=>'info','dang_dong_goi'=>
             <?php else: ?>
             <p style="color:var(--text-secondary);">Chưa có địa chỉ nào.</p>
             <?php endif; ?>
+            <!-- Add Address Modal -->
             <div id="addAddrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;align-items:center;justify-content:center;">
                 <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:90%;max-width:480px;">
                     <h3 style="margin-bottom:20px;">+ Thêm Địa Chỉ Mới</h3>
@@ -142,9 +212,9 @@ $statusBadge =['cho_xac_nhan'=>'warning','da_xac_nhan'=>'info','dang_dong_goi'=>
                         <input type="hidden" name="action" value="add_address">
                         <div class="form-group"><label class="form-label">Họ tên người nhận</label><input type="text" name="hovaten" class="form-control" required value="<?= sanitize($user['hovaten']??'') ?>"></div>
                         <div class="form-group"><label class="form-label">Số điện thoại</label><input type="tel" name="sdt" class="form-control" required value="<?= sanitize($user['SDT']??'') ?>"></div>
-                        <div class="form-group"><label class="form-label">Tỉnh/Thành</label><input type="text" name="tinh_thanh" class="form-control" required placeholder="TP. Hồ Chí Minh"></div>
-                        <div class="form-group"><label class="form-label">Quận/Huyện</label><input type="text" name="quan_huyen" class="form-control"></div>
-                        <div class="form-group"><label class="form-label">Phường/Xã</label><input type="text" name="phuong_xa" class="form-control"></div>
+                        <div class="form-group"><label class="form-label">Tỉnh/Thành</label><select name="tinh_thanh" id="add_tinh_thanh" class="form-control" required></select></div>
+                        <div class="form-group"><label class="form-label">Quận/Huyện</label><select name="quan_huyen" id="add_quan_huyen" class="form-control" required></select></div>
+                        <div class="form-group"><label class="form-label">Phường/Xã</label><select name="phuong_xa" id="add_phuong_xa" class="form-control" required></select></div>
                         <div class="form-group"><label class="form-label">Địa chỉ cụ thể</label><input type="text" name="dia_chi_cu_the" class="form-control" required></div>
                         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
                             <button type="button" class="btn btn-outline" onclick="document.getElementById('addAddrModal').style.display='none'">Hủy</button>
@@ -153,6 +223,60 @@ $statusBadge =['cho_xac_nhan'=>'warning','da_xac_nhan'=>'info','dang_dong_goi'=>
                     </form>
                 </div>
             </div>
+
+            <!-- Edit Address Modal -->
+            <div id="editAddrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;align-items:center;justify-content:center;">
+                <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:28px;width:90%;max-width:480px;">
+                    <h3 style="margin-bottom:20px;">✏️ Chỉnh Sửa Địa Chỉ</h3>
+                    <form method="POST" id="editAddrForm">
+                        <input type="hidden" name="action" value="edit_address">
+                        <input type="hidden" name="ma_diachi" id="edit_ma_diachi">
+                        <div class="form-group"><label class="form-label">Họ tên người nhận</label><input type="text" name="hovaten" id="edit_hovaten" class="form-control" required></div>
+                        <div class="form-group"><label class="form-label">Số điện thoại</label><input type="tel" name="sdt" id="edit_sdt" class="form-control" required></div>
+                        <div class="form-group"><label class="form-label">Tỉnh/Thành</label><select name="tinh_thanh" id="edit_tinh_thanh" class="form-control" required></select></div>
+                        <div class="form-group"><label class="form-label">Quận/Huyện</label><select name="quan_huyen" id="edit_quan_huyen" class="form-control" required></select></div>
+                        <div class="form-group"><label class="form-label">Phường/Xã</label><select name="phuong_xa" id="edit_phuong_xa" class="form-control" required></select></div>
+                        <div class="form-group"><label class="form-label">Địa chỉ cụ thể</label><input type="text" name="dia_chi_cu_the" id="edit_dia_chi_cu_the" class="form-control" required></div>
+                        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+                            <button type="button" class="btn btn-outline" onclick="document.getElementById('editAddrModal').style.display='none'">Hủy</button>
+                            <button type="submit" class="btn btn-primary">Cập nhật</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <script>
+            let addSelector, editSelector;
+            
+            document.addEventListener('DOMContentLoaded', () => {
+                // Initialize selectors
+                addSelector = initAddressSelector({
+                    provinceSelector: '#add_tinh_thanh',
+                    districtSelector: '#add_quan_huyen',
+                    wardSelector: '#add_phuong_xa'
+                });
+
+                editSelector = initAddressSelector({
+                    provinceSelector: '#edit_tinh_thanh',
+                    districtSelector: '#edit_quan_huyen',
+                    wardSelector: '#edit_phuong_xa'
+                });
+            });
+
+            function openEditModal(addr) {
+                document.getElementById('edit_ma_diachi').value = addr.ma_diachi;
+                document.getElementById('edit_hovaten').value   = addr.ho_ten_nguoinhan;
+                document.getElementById('edit_sdt').value       = addr.SDT_nguoinhan;
+                document.getElementById('edit_dia_chi_cu_the').value = addr.dia_chi_cu_the;
+                
+                // Pre-fill dropdowns
+                if (editSelector) {
+                    editSelector.setValues(addr.tinh_thanh, addr.quan_huyen, addr.phuong_xa);
+                }
+                
+                document.getElementById('editAddrModal').style.display = 'flex';
+            }
+            </script>
 
             <?php elseif ($tab === 'orders'): ?>
             <h2 class="tab-title">📦 Đơn Hàng Gần Đây</h2>
