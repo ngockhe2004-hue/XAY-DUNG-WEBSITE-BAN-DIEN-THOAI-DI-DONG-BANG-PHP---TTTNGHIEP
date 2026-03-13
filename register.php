@@ -7,21 +7,25 @@ if (isLoggedIn()) redirect(BASE_URL . '/index.php');
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $result = register([
-        'ten_user' => $_POST['ten_user'] ?? '',
-        'email'    => $_POST['email'] ?? '',
-        'password' => $_POST['password'] ?? '',
-        'hovaten'  => $_POST['hovaten'] ?? '',
-        'sdt'      => $_POST['sdt'] ?? '',
-        'dia_chi'  => $_POST['dia_chi'] ?? '',
-    ]);
-    if ($result['success']) {
-        // Auto login
-        login($_POST['ten_user'], $_POST['password']);
-        setFlash('success', '🎉 Đăng ký thành công! Chào mừng bạn đến PhoneStore!');
-        redirect(BASE_URL . '/index.php');
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Lỗi xác thực bảo mật (CSRF). Vui lòng thử lại.';
     } else {
-        $error = $result['message'];
+        $result = register([
+            'ten_user' => $_POST['ten_user'] ?? '',
+            'email'    => $_POST['email'] ?? '',
+            'password' => $_POST['password'] ?? '',
+            'hovaten'  => $_POST['hovaten'] ?? '',
+            'sdt'      => $_POST['sdt'] ?? '',
+            'dia_chi'  => $_POST['dia_chi'] ?? '',
+        ]);
+        if ($result['success']) {
+            // Auto login
+            login($_POST['ten_user'], $_POST['password']);
+            setFlash('success', '🎉 Đăng ký thành công! Chào mừng bạn đến PhoneStore!');
+            redirect(BASE_URL . '/index.php');
+        } else {
+            $error = $result['message'];
+        }
     }
 }
 ?>
@@ -51,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
         
         <form method="POST" id="registerForm" novalidate>
+            <?php csrfInput(); ?>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                 <div class="form-group">
                     <label class="form-label">Tên đăng nhập *</label>

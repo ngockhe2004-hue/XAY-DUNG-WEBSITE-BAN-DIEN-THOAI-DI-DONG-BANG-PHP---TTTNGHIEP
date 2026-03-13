@@ -5,8 +5,27 @@ ob_start(); // Bật output buffering để tránh lỗi headers already sent
 // ============================================================
 
 define('SITE_NAME', 'Phonestore - Điện Thoại Chính Hãng');
-define('BASE_URL', 'http://localhost/website%20bandienthoai');
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+$domain = $_SERVER['HTTP_HOST'];
+$base_url = $protocol . "://" . $domain . "/website%20bandienthoai";
+define('BASE_URL', $base_url);
 define('ADMIN_EMAIL', 'admin@bandienthoai.vn');
+
+// Load .env (Simple implementation)
+function loadEnv($path) {
+    if (!file_exists($path)) return;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        list($name, $value) = explode('=', $line, 2);
+        $_ENV[trim($name)] = trim($value);
+    }
+}
+loadEnv(__DIR__ . '/../.env');
+
+// Gemini AI Settings
+define('GEMINI_API_KEY', $_ENV['GEMINI_API_KEY'] ?? '');
+define('GEMINI_MODEL', $_ENV['GEMINI_MODEL'] ?? 'gemini-1.5-flash');
 
 // Upload settings
 define('UPLOAD_DIR', __DIR__ . '/../uploads/products/');
@@ -48,6 +67,23 @@ function sanitize($input) {
 function redirect($url) {
     header("Location: $url");
     exit();
+}
+
+// CSRF Protection
+function generateCsrfToken() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verifyCsrfToken($token) {
+    if (!isset($_SESSION['csrf_token']) || empty($token)) return false;
+    return hash_equals($_SESSION['csrf_token'], $token);
+}
+
+function csrfInput() {
+    echo '<input type="hidden" name="csrf_token" value="' . generateCsrfToken() . '">';
 }
 
 // Helper: Flash message

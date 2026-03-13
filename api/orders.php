@@ -35,6 +35,10 @@ if ($method === 'PUT') {
             // Cập nhật trạng thái đơn hàng
             db()->execute("UPDATE donhang SET trang_thai = 'da_huy' WHERE ma_donhang = ?", [$orderId]);
             
+            // Ghi log chi tiết
+            db()->insert("INSERT INTO donhang_trangthai_logs (ma_donhang, trang_thai, mo_ta) VALUES (?,?,?)",
+                [$orderId, 'da_huy', 'Khách hàng đã yêu cầu hủy đơn hàng này']);
+            
             // Hoàn lại tồn kho
             $items = db()->fetchAll("SELECT * FROM chitiet_donhang WHERE ma_donhang = ?", [$orderId]);
             foreach ($items as $item) {

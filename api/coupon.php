@@ -6,6 +6,12 @@ require_once __DIR__ . '/../includes/auth.php';
 header('Content-Type: application/json; charset=utf-8');
 function jsonOut($d) { echo json_encode($d, JSON_UNESCAPED_UNICODE); exit; }
 
+// Handle removal
+if (isset($_GET['remove'])) {
+    unset($_SESSION['applied_coupon']);
+    jsonOut(['success' => true, 'message' => 'Đã gỡ mã giảm giá']);
+}
+
 $code  = sanitize($_GET['code'] ?? '');
 $total = (float)($_GET['total'] ?? 0);
 
@@ -37,6 +43,13 @@ if ($coupon['kieu_giam'] === 'phan_tram') {
     $discount = $coupon['gia_tri_giam'];
 }
 $discount = min($discount, $total);
+
+// Save to session
+$_SESSION['applied_coupon'] = [
+    'id' => $coupon['ma_km'],
+    'code' => $code,
+    'discount' => round($discount)
+];
 
 jsonOut([
     'success'   => true,

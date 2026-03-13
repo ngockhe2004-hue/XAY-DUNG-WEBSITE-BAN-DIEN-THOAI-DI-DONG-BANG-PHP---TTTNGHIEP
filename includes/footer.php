@@ -58,6 +58,29 @@
     </div>
 </footer>
 
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/chat.css">
+
+<!-- Chat Widget -->
+<div class="chat-widget">
+    <div class="chat-trigger" id="chatTrigger">
+        <span>💬</span>
+    </div>
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <h4>Hỗ trợ trực tuyến</h4>
+            <span class="chat-close" id="chatClose">✕</span>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">Xin chào! Tôi là trợ lý ảo của PhoneStore. Tôi có thể giúp gì cho bạn?</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chatInput" placeholder="Nhập tin nhắn...">
+            <button class="chat-send" id="chatSend">➤</button>
+        </div>
+    </div>
+</div>
+
+<script src="<?= BASE_URL ?>/assets/js/chat.js"></script>
 <script src="<?= BASE_URL ?>/assets/js/main.js"></script>
 <script src="<?= BASE_URL ?>/assets/js/address_selector.js"></script>
 <script src="<?= BASE_URL ?>/assets/js/cart.js"></script>

@@ -193,3 +193,46 @@ function getOrCreateCart() {
     if (!$gio) return db()->insert("INSERT INTO giohang (ma_user) VALUES (?)", [$uid]);
     return $gio['ma_gio'];
 }
+
+// ============================================================
+// FORGOT PASSWORD LOGIC
+// ============================================================
+
+/** Tạo token khôi phục mật khẩu và lưu vào DB (hết hạn trong 1 giờ) */
+function generateResetToken(string $email): ?string {
+    $user = db()->fetchOne("SELECT ma_user FROM users WHERE email = ?", [$email]);
+    if (!$user) return null;
+
+    $token = bin2hex(random_bytes(32));
+    $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+    db()->execute(
+        "UPDATE users SET reset_token = ?, reset_expires = ? WHERE ma_user = ?",
+        [$token, $expires, $user['ma_user']]
+    );
+
+    return $token;
+}
+
+/** Xác minh token khôi phục mật khẩu */
+function verifyResetToken(string $token): ?array {
+    $user = db()->fetchOne(
+        "SELECT * FROM users WHERE reset_token = ? AND reset_expires > NOW()",
+        [$token]
+    );
+    return $user ?: null;
+}
+
+/** Đặt lại mật khẩu mới dùng token */
+function resetPasswordWithToken(string $token, string $newPassword): array {
+    $user = verifyResetToken($token);
+    if (!$user) return ['success' => false, 'message' => 'Token không hợp lệ hoặc đã hết hạn'];
+
+    $hash = password_hash($newPassword, PASSWORD_BCRYPT);
+    db()->execute(
+        "UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires = NULL WHERE ma_user = ?",
+        [$hash, $user['ma_user']]
+    );
+
+    return ['success' => true];
+}

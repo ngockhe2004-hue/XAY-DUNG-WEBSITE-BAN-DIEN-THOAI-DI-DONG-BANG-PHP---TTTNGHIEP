@@ -92,13 +92,27 @@ if ($gio) {
             <h3>Tóm Tắt Đơn Hàng</h3>
             
             <!-- Coupon -->
-            <div class="coupon-input">
-                <input type="text" id="couponCode" placeholder="Nhập mã giảm giá..." class="form-control">
-                <button class="btn btn-outline btn-sm" onclick="applyCoupon()">Áp dụng</button>
+            <div id="couponSection" style="margin-bottom: 20px;">
+                <?php 
+                $applied = $_SESSION['applied_coupon'] ?? null;
+                $hasCoupon = !empty($applied);
+                ?>
+                <div class="coupon-input" id="couponInputRow" style="<?= $hasCoupon ? 'display:none' : '' ?>">
+                    <input type="text" id="couponCode" placeholder="Nhập mã giảm giá..." class="form-control">
+                    <button class="btn btn-outline btn-sm" onclick="applyCoupon()">Áp dụng</button>
+                </div>
+                
+                <div id="appliedCouponRow" style="<?= $hasCoupon ? 'display:flex' : 'display:none' ?>; align-items:center; justify-content:space-between; padding:12px; background:rgba(34,197,94,0.1); border-radius:12px; border:1px dashed var(--success);">
+                    <div style="font-size:13px; color:var(--success); font-weight:600;">
+                        ✅ <span id="appliedCodeText"><?= $applied['code'] ?? '' ?></span> (Giảm <span id="appliedDiscountText"><?= formatPrice($applied['discount'] ?? 0) ?></span>)
+                    </div>
+                    <button onclick="removeCoupon()" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:12px; font-weight:700;">Gỡ bỏ</button>
+                </div>
+                <div id="couponMsg" style="font-size:12px; margin-top:8px;"></div>
             </div>
-            <div id="couponMsg" style="font-size:13px;margin-bottom:12px;"></div>
-            <input type="hidden" id="couponId" value="">
-            <input type="hidden" id="discountAmt" value="0">
+
+            <input type="hidden" id="couponId" value="<?= $applied['id'] ?? '' ?>">
+            <input type="hidden" id="discountAmt" value="<?= $applied['discount'] ?? 0 ?>">
 
             <div class="summary-row">
                 <span class="label">Tạm tính (<?= count($items) ?> SP)</span>
@@ -108,14 +122,18 @@ if ($gio) {
                 <span class="label">Phí vận chuyển</span>
                 <span><?= $total >= 500000 ? '<span style="color:var(--success)">Miễn phí</span>' : formatPrice(30000) ?></span>
             </div>
-            <div class="summary-row" id="discountRow" style="display:none;">
+            <div class="summary-row" id="discountRow" style="<?= $hasCoupon ? '' : 'display:none' ?>">
                 <span class="label">Giảm giá</span>
-                <span style="color:var(--danger);" id="discountDisplay">-0 VND</span>
+                <span style="color:var(--danger);" id="discountDisplay">-<?= formatPrice($applied['discount'] ?? 0) ?></span>
             </div>
             <div class="summary-row summary-total">
                 <span>Tổng cộng</span>
                 <span style="background:var(--gradient-main);-webkit-background-clip:text;-webkit-text-fill-color:transparent;" id="totalDisplay">
-                    <?= formatPrice($total >= 500000 ? $total : $total + 30000) ?>
+                    <?php 
+                    $currDiscount = $applied['discount'] ?? 0;
+                    $finalTotal = max(0, $total - $currDiscount) + ($total >= 500000 ? 0 : 30000);
+                    echo formatPrice($finalTotal);
+                    ?>
                 </span>
             </div>
 
@@ -143,7 +161,7 @@ const SHIP_FREE = 500000;
 const SHIP_FEE  = 30000;
 
 let subtotal = <?= $total ?>;
-let discount = 0;
+let discount = <?= $_SESSION['applied_coupon']['discount'] ?? 0 ?>;
 
 function calcTotal() {
     const ship = subtotal >= SHIP_FREE ? 0 : SHIP_FEE;
@@ -184,7 +202,14 @@ async function updateQty(ctghId, delta, maxStock) {
         if (priceEl) priceEl.textContent = fmtPrice(unitPrice * newQty);
         subtotal = data.cart_total;
         document.getElementById('cartCount').textContent = data.cart_count;
-        refreshDisplay();
+        
+        // Nếu đang có mã giảm giá, cần áp dụng lại để tính lại số tiền giảm
+        const appliedCode = document.getElementById('appliedCodeText').textContent;
+        if (appliedCode) {
+            await applyCoupon(true); 
+        } else {
+            refreshDisplay();
+        }
     } else {
         input.value = oldQty;
         alert(data.message || 'Không thể cập nhật số lượng');
@@ -211,21 +236,52 @@ async function clearCart() {
     if (data.success) location.reload();
 }
 
-async function applyCoupon() {
-    const code = document.getElementById('couponCode').value.trim();
+async function applyCoupon(isSilent = false) {
+    const codeInput = document.getElementById('couponCode');
+    const appliedCode = document.getElementById('appliedCodeText').textContent;
+    const code = isSilent ? appliedCode : codeInput.value.trim();
+    
     if (!code) return;
+    
     const res  = await fetch(BASE_URL + '/api/coupon.php?code=' + encodeURIComponent(code) + '&total=' + subtotal);
     const data = await res.json();
     const msg  = document.getElementById('couponMsg');
+    
     if (data.success) {
         discount = data.discount;
         document.getElementById('discountAmt').value = discount;
         document.getElementById('couponId').value = data.coupon_id;
-        msg.innerHTML = '<span style="color:var(--success)">✅ ' + data.message + '</span>';
+        
+        // UI toggle
+        document.getElementById('couponInputRow').style.display = 'none';
+        document.getElementById('appliedCouponRow').style.display = 'flex';
+        document.getElementById('appliedCodeText').textContent = code;
+        document.getElementById('appliedDiscountText').textContent = fmtPrice(discount);
+        
+        if (!isSilent) msg.innerHTML = '<span style="color:var(--success)">✅ ' + data.message + '</span>';
         refreshDisplay();
     } else {
-        msg.innerHTML = '<span style="color:var(--danger)">❌ ' + data.message + '</span>';
-        discount = 0; refreshDisplay();
+        if (!isSilent) msg.innerHTML = '<span style="color:var(--danger)">❌ ' + data.message + '</span>';
+        discount = 0; 
+        document.getElementById('couponInputRow').style.display = 'flex';
+        document.getElementById('appliedCouponRow').style.display = 'none';
+        refreshDisplay();
+    }
+}
+
+async function removeCoupon() {
+    const res = await fetch(BASE_URL + '/api/coupon.php?remove=1');
+    const data = await res.json();
+    if (data.success) {
+        discount = 0;
+        document.getElementById('discountAmt').value = 0;
+        document.getElementById('couponId').value = '';
+        document.getElementById('couponCode').value = '';
+        
+        document.getElementById('couponInputRow').style.display = 'flex';
+        document.getElementById('appliedCouponRow').style.display = 'none';
+        document.getElementById('couponMsg').innerHTML = '';
+        refreshDisplay();
     }
 }
 </script>

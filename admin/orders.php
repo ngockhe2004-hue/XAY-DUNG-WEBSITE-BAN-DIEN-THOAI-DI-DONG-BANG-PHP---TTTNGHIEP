@@ -31,7 +31,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             
             db()->execute("UPDATE donhang SET trang_thai = ?, trang_thai_TT = ? WHERE ma_donhang = ?", [$tt, $paymentStatus, $id]);
-            // Log
+            
+            // Log chi tiết cho người dùng
+            $descriptions = [
+                'cho_xac_nhan' => 'Đơn hàng đang chờ quản trị viên xác nhận',
+                'da_xac_nhan' => 'Đơn hàng đã được xác nhận và chuẩn bị đóng gói',
+                'dang_dong_goi' => 'Nhân viên đang tiến hành đóng gói sản phẩm của bạn',
+                'dang_giao' => 'Đơn hàng đã được bàn giao cho đơn vị vận chuyển',
+                'da_giao' => 'Giao hàng thành công. Cảm ơn quý khách đã mua sắm!',
+                'da_huy' => 'Đơn hàng đã bị hủy bởi quản trị viên',
+                'da_tra_hang' => 'Đơn hàng đã chuyển sang trạng thái Trả hàng & Hoàn tiền'
+            ];
+            db()->insert("INSERT INTO donhang_trangthai_logs (ma_donhang, trang_thai, mo_ta) VALUES (?,?,?)",
+                [$id, $tt, $descriptions[$tt] ?? 'Trạng thái đơn hàng đã được cập nhật']);
+
+            // Audit Log cho Admin
             db()->insert("INSERT INTO audit_log (ma_admin, hanh_dong, bang_lien_quan, ma_ban_ghi, du_lieu_cu, du_lieu_moi) VALUES (?,?,?,?,?,?)",
                 [$_SESSION['admin_site']['id'], 'UPDATE_ORDER_STATUS', 'donhang', $id,
                  json_encode(['trang_thai'=>$old['trang_thai'], 'trang_thai_TT'=>$old['trang_thai_TT']]), 

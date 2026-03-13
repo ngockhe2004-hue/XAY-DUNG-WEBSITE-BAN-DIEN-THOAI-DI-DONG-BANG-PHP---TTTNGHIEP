@@ -13,13 +13,17 @@ $userAlreadyLoggedIn = !empty($_SESSION['user_site']['logged_in']) && _verifyNam
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $result = login(sanitize($_POST['username'] ?? ''), $_POST['password'] ?? '');
-    if ($result['success']) {
-        $user = $result['user'];
-        $defaultRedirect = BASE_URL . ($user['quyen'] === 'admin' ? '/admin/index.php' : '/index.php');
-        redirect($_GET['redirect'] ?? $defaultRedirect);
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Lỗi xác thực bảo mật (CSRF). Vui lòng thử lại.';
     } else {
-        $error = $result['message'];
+        $result = login(sanitize($_POST['username'] ?? ''), $_POST['password'] ?? '');
+        if ($result['success']) {
+            $user = $result['user'];
+            $defaultRedirect = BASE_URL . ($user['quyen'] === 'admin' ? '/admin/index.php' : '/index.php');
+            redirect($_GET['redirect'] ?? $defaultRedirect);
+        } else {
+            $error = $result['message'];
+        }
     }
 }
 ?>
@@ -61,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
             
             <form method="POST" id="loginForm">
+                <?php csrfInput(); ?>
                 <div class="form-group">
                     <label class="form-label">Tên đăng nhập hoặc Email</label>
                     <input type="text" name="username" class="form-control" 
@@ -71,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
                         <label class="form-label" style="margin:0">Mật khẩu</label>
-                        <a href="#" style="font-size:13px;color:var(--accent)">Quên mật khẩu?</a>
+                        <a href="<?= BASE_URL ?>/forgot-password.php" style="font-size:13px;color:var(--accent)">Quên mật khẩu?</a>
                     </div>
                     <div style="position:relative;">
                         <input type="password" name="password" class="form-control" 

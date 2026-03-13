@@ -55,6 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$tenNguoiNhan || !$sdt || !$tinhThanh || !$diaChiCuThe) {
         setFlash('error','Vui lòng điền đầy đủ thông tin giao hàng');
+    } elseif (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        setFlash('error', 'Lỗi xác thực bảo mật (CSRF). Vui lòng thử lại.');
     } else {
         // Re-check tồn kho
         $lack = false;
@@ -140,6 +142,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     [$maKmId, $userId, $maOrder, $soTienGiam]);
             }
 
+            // 6.b Ghi log trạng thái ban đầu
+            db()->insert("INSERT INTO donhang_trangthai_logs (ma_donhang, trang_thai, mo_ta) VALUES (?,?,?)",
+                [$maOrder, 'cho_xac_nhan', 'Đơn hàng đã được đặt thành công và đang chờ xác nhận từ cửa hàng']);
+
             // 7. Tạo bản ghi thanh toán
             db()->insert(
                 "INSERT INTO thanhtoan (ma_donhang, so_tien, phuong_thuc, trang_thai) VALUES (?,?,?,?)",
@@ -183,6 +189,7 @@ require_once __DIR__ . '/includes/header.php';
     <h1 class="page-title">📦 Đặt Hàng</h1>
     
     <form method="POST" id="checkoutForm">
+    <?php csrfInput(); ?>
     <div class="checkout-layout">
         <!-- Left -->
         <div>
@@ -299,13 +306,23 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="label">Phí vận chuyển</span>
                     <span><?= $ship == 0 ? '<span style="color:var(--success)">Miễn phí</span>' : formatPrice($ship) ?></span>
                 </div>
-                <div class="summary-row summary-total">
-                    <span>Tổng cộng</span>
-                    <span style="color:var(--accent);"><?= formatPrice($total) ?></span>
+                
+                <?php 
+                $applied = $_SESSION['applied_coupon'] ?? null;
+                $discount = $applied['discount'] ?? 0;
+                ?>
+                <div id="checkoutDiscountRow" class="summary-row" style="<?= $discount > 0 ? '' : 'display:none' ?>">
+                    <span class="label">Giảm giá (<span id="checkoutCouponCode"><?= $applied['code'] ?? '' ?></span>)</span>
+                    <span style="color:var(--danger);">-<?= formatPrice($discount) ?></span>
                 </div>
 
-                <input type="hidden" name="ma_km" id="checkout_km" value="">
-                <input type="hidden" name="so_tien_giam" id="checkout_giam" value="0">
+                <div class="summary-row summary-total">
+                    <span>Tổng cộng</span>
+                    <span style="color:var(--accent);" id="checkoutTotalText"><?= formatPrice(max(0, $total - $discount)) ?></span>
+                </div>
+
+                <input type="hidden" name="ma_km" id="checkout_km" value="<?= $applied['id'] ?? '' ?>">
+                <input type="hidden" name="so_tien_giam" id="checkout_giam" value="<?= $discount ?>">
                 
                 <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top:20px;">
                     ✅ Xác Nhận Đặt Hàng

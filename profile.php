@@ -281,22 +281,112 @@ $statusBadge =['cho_xac_nhan'=>'warning','da_xac_nhan'=>'info','dang_dong_goi'=>
             <?php elseif ($tab === 'orders'): ?>
             <h2 class="tab-title">📦 Đơn Hàng Gần Đây</h2>
             <?php if ($orders): ?>
-            <?php foreach ($orders as $o): ?>
-            <div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg-secondary);border-bottom:1px solid var(--border);">
-                    <span style="font-weight:700;color:var(--accent);"><?= sanitize($o['ma_donhang_code']) ?></span>
-                    <span class="badge badge-<?= $statusBadge[$o['trang_thai']] ?? 'gray' ?>"><?= $statusLabels[$o['trang_thai']] ?? $o['trang_thai'] ?></span>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
-                    <span style="color:var(--text-secondary);font-size:13px;"><?= date('d/m/Y H:i',strtotime($o['ngay_dat'])) ?></span>
-                    <div style="display:flex;gap:12px;align-items:center;">
-                        <span style="font-weight:700;color:var(--accent);"><?= formatPrice($o['tong_thanh_toan']) ?></span>
-                        <a href="<?= BASE_URL ?>/order_detail.php?id=<?= $o['ma_donhang'] ?>" class="btn btn-outline btn-sm">Chi tiết</a>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+                <?php foreach ($orders as $o): ?>
+                <div class="card" style="padding:0;overflow:hidden;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg-secondary);border-bottom:1px solid var(--border);">
+                        <span style="font-weight:700;color:var(--accent);"><?= sanitize($o['ma_donhang_code']) ?></span>
+                        <span class="badge badge-<?= $statusBadge[$o['trang_thai']] ?? 'gray' ?>"><?= $statusLabels[$o['trang_thai']] ?? $o['trang_thai'] ?></span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
+                        <span style="color:var(--text-secondary);font-size:13px;"><?= date('d/m/Y H:i',strtotime($o['ngay_dat'])) ?></span>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span style="font-weight:700;color:var(--accent);"><?= formatPrice($o['tong_thanh_toan']) ?></span>
+                            <button onclick='trackOrder(<?= json_encode([
+                                "id" => $o["ma_donhang"],
+                                "code" => $o["ma_donhang_code"],
+                                "status" => $o["trang_thai"]
+                            ]) ?>)' class="btn btn-primary btn-sm" style="background:var(--info);border-color:var(--info);padding:6px 12px;font-size:12px;">Theo dõi</button>
+                            <a href="<?= BASE_URL ?>/order_detail.php?id=<?= $o['ma_donhang'] ?>" class="btn btn-outline btn-sm" style="padding:6px 12px;font-size:12px;">Chi tiết</a>
+                        </div>
                     </div>
                 </div>
+                <?php endforeach; ?>
             </div>
-            <?php endforeach; ?>
             <a href="<?= BASE_URL ?>/orders.php" class="btn btn-outline" style="display:block;text-align:center;">Xem tất cả đơn hàng →</a>
+
+            <!-- Modal Theo Dõi Đơn Hàng (Timeline) -->
+            <div id="trackOrderModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:20px;">
+                <div style="background:var(--bg-card);width:100%;max-width:500px;border-radius:24px;padding:32px;position:relative;box-shadow:0 20px 50px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto;">
+                    <button onclick="closeTrackModal()" style="position:absolute;top:20px;right:20px;background:var(--bg-secondary);border:none;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-secondary);font-size:20px;transition:0.2s;">&times;</button>
+                    
+                    <div style="text-align:center;margin-bottom:30px;">
+                        <h2 id="modalOrderCode" style="font-size:24px;margin-bottom:8px;background:linear-gradient(45deg, var(--accent), #ff8a00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;">Theo Dõi</h2>
+                        <p style="color:var(--text-secondary);font-size:14px;">Trạng thái vận chuyển chi tiết</p>
+                    </div>
+                    
+                    <div id="timelineContainer" style="position:relative;margin-left:20px;padding-left:30px;border-left:2px dashed var(--border);">
+                        <!-- Timeline items -->
+                    </div>
+
+                    <div id="cancelWarning" style="display:none;margin-top:20px;padding:12px;background:rgba(239,68,68,0.1);border-radius:12px;color:var(--danger);font-size:13px;text-align:center;">
+                        ⚠️ Đơn hàng đã bị hủy.
+                    </div>
+                    <button onclick="closeTrackModal()" class="btn btn-primary" style="width:100%;margin-top:24px;border-radius:12px;">Đóng</button>
+                </div>
+            </div>
+
+            <script>
+            async function trackOrder(orderData) {
+                const modal = document.getElementById('trackOrderModal');
+                const container = document.getElementById('timelineContainer');
+                document.getElementById('modalOrderCode').textContent = 'Theo Dõi: ' + orderData.code;
+                
+                container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;">Đang tải...</p>';
+                modal.style.display = 'flex';
+
+                try {
+                    const res = await fetch(`<?= BASE_URL ?>/api/get_order_logs.php?id=${orderData.id}`);
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        container.innerHTML = '';
+                        const icons = {
+                            'cho_xac_nhan': '⏳', 'da_xac_nhan': '✅', 'dang_dong_goi': '📦',
+                            'dang_giao': '🚚', 'da_giao': '🏁', 'da_huy': '❌', 'da_tra_hang': '↩️'
+                        };
+                        
+                        data.logs.forEach((log, i) => {
+                            const isFirst = i === 0;
+                            const dotColor = isFirst ? 'var(--accent)' : 'var(--border)';
+                            const item = document.createElement('div');
+                            item.style.position = 'relative';
+                            item.style.marginBottom = '24px';
+                            item.innerHTML = `
+                                <div style="position:absolute;left:-41px;top:0;width:20px;height:20px;background:var(--bg-card);border:2px solid ${dotColor};border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:2;">
+                                    <div style="width:8px;height:8px;background:${dotColor};border-radius:50%;"></div>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;gap:10px;">
+                                    <div>
+                                        <div style="font-weight:700;color:${isFirst?'var(--accent)':'var(--text-primary)'};">${icons[log.trang_thai]||'•'} ${log.label}</div>
+                                        <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${log.mo_ta}</div>
+                                    </div>
+                                    <div style="text-align:right;white-space:nowrap;">
+                                        <div style="font-size:12px;font-weight:700;">${log.time}</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">${log.date}</div>
+                                    </div>
+                                </div>
+                            `;
+                            container.appendChild(item);
+                        });
+                    }
+                } catch (e) { container.innerHTML = 'Lỗi tải dữ liệu'; }
+                document.getElementById('cancelWarning').style.display = (orderData.status === 'da_huy') ? 'block' : 'none';
+            }
+
+            function closeTrackModal() {
+                document.getElementById('trackOrderModal').style.display = 'none';
+            }
+
+            window.onclick = function(event) {
+                const trackModal = document.getElementById('trackOrderModal');
+                const addModal = document.getElementById('addAddrModal');
+                const editModal = document.getElementById('editAddrModal');
+                if (event.target == trackModal) closeTrackModal();
+                if (event.target == addModal) addModal.style.display = 'none';
+                if (event.target == editModal) editModal.style.display = 'none';
+            }
+            </script>
             <?php else: ?>
             <p style="color:var(--text-secondary);">Chưa có đơn hàng nào.</p>
             <?php endif; ?>

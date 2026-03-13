@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Dashboard';
+$pageTitle = 'Báo cáo & Thống kê';
 require_once __DIR__ . '/includes/auth_admin.php';
 
 // Dữ liệu cho biểu đồ (7 ngày gần nhất)
@@ -56,9 +56,9 @@ require_once __DIR__ . '/includes/header.php';
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <?php
 
-// Stats
-$totalRevenue   = db()->fetchColumn("SELECT COALESCE(SUM(tong_thanh_toan),0) FROM donhang WHERE trang_thai NOT IN ('da_huy','da_hoan_tien')");
-$refundRevenue  = db()->fetchColumn("SELECT COALESCE(SUM(tong_thanh_toan),0) FROM donhang WHERE trang_thai_TT = 'da_hoan_tien'");
+// Thống kê thẻ (Stats)
+$totalRevenue   = db()->fetchColumn("SELECT COALESCE(SUM(tong_thanh_toan),0) FROM donhang WHERE trang_thai = 'da_giao'");
+$refundRevenue  = db()->fetchColumn("SELECT COALESCE(SUM(tong_thanh_toan),0) FROM donhang WHERE trang_thai = 'da_tra_hang' OR trang_thai_TT = 'da_hoan_tien'");
 $totalOrders    = db()->fetchColumn("SELECT COUNT(*) FROM donhang");
 $failedOrders   = db()->fetchColumn("SELECT COUNT(*) FROM donhang WHERE trang_thai = 'da_huy'");
 $totalUsers     = db()->fetchColumn("SELECT COUNT(*) FROM users WHERE quyen = 'customer'");
