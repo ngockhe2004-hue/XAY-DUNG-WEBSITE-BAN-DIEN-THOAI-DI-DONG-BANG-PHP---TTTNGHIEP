@@ -12,6 +12,13 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+    $action = $input['action'] ?? '';
+    
+    if ($action === 'clear_all') {
+        db()->execute("DELETE FROM dsyeuthich WHERE ma_user = ?", [$userId]);
+        jsonOut(['success'=>true, 'message'=>'Đã xóa toàn bộ danh sách yêu thích']);
+    }
+
     $maSanpham = (int)($input['ma_sanpham'] ?? 0);
     if (!$maSanpham) jsonOut(['success'=>false,'message'=>'Thiếu ID sản phẩm']);
     

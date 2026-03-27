@@ -32,7 +32,13 @@ if ($method === 'POST') {
 
     $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
     $maBienthe = (int)($input['ma_bienthe'] ?? 0);
+    $maSanPham = (int)($input['ma_sanpham'] ?? 0);
     $soLuong   = max(1, (int)($input['so_luong'] ?? 1));
+
+    if (!$maBienthe && $maSanPham) {
+        $bienthe_default = db()->fetchOne("SELECT ma_bienthe FROM bienthe_sanpham WHERE ma_sanpham = ? AND is_active = 1 ORDER BY ma_bienthe ASC LIMIT 1", [$maSanPham]);
+        if ($bienthe_default) $maBienthe = $bienthe_default['ma_bienthe'];
+    }
 
     if (!$maBienthe) jsonOut(['success'=>false,'message'=>'Thiếu biến thể']);
 

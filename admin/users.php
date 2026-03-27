@@ -83,7 +83,8 @@ $users = db()->fetchAll("SELECT *, (SELECT COUNT(*) FROM donhang WHERE ma_user=u
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th style="text-align:left; padding-left: 30px;">HÀNH VI & DANH TÍNH</th>
+                    <th style="padding-left: 30px;">ID</th>
+                    <th style="text-align:left;">HÀNH VI & DANH TÍNH</th>
                     <th>EMAIL LIÊN HỆ</th>
                     <th>SĐT / ĐỊA CHỈ</th>
                     <th>NGÀY GIA NHẬP</th>
@@ -95,7 +96,10 @@ $users = db()->fetchAll("SELECT *, (SELECT COUNT(*) FROM donhang WHERE ma_user=u
             <tbody>
                 <?php foreach ($users as $u): ?>
                 <tr>
-                    <td style="text-align:left; padding-left: 30px;">
+                    <td style="padding-left: 30px; font-weight: 800; color: var(--accent); font-size: 14px;">
+                        #<?= $u['ma_user'] ?>
+                    </td>
+                    <td style="text-align:left;">
                         <div style="display:flex; gap:15px; align-items:center;">
                             <div style="width:44px; height:44px; border-radius:15px; background: var(--purple-grad); color: #fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; box-shadow: 0 8px 15px rgba(139, 92, 246, 0.2);">
                                 <?= mb_strtoupper(mb_substr($u['hovaten'] ?: $u['ten_user'], 0, 1)) ?>

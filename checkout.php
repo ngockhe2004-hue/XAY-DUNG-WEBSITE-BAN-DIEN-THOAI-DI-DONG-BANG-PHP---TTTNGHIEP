@@ -298,11 +298,21 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                 </div>
                 
+                <!-- Ô Nhập Khuyến Mãi được đưa lên trên -->
+                <div style="margin-bottom: 20px; padding: 16px; background: #fff; border-radius: 12px; border: 1px solid #eaeaea; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                    <label style="font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; display: block;">Mã giảm giá</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="couponInput" class="form-control" style="flex: 1; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px 14px; font-size: 14px; background: #fff;" placeholder="Nhập mã (VD: WELCOME10)" value="<?= sanitize($applied['code'] ?? '') ?>">
+                        <button type="button" id="applyCouponBtn" class="btn btn-primary" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; white-space: nowrap; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);">Áp dụng</button>
+                    </div>
+                    <div id="couponMessage" style="font-size: 13px; margin-top: 8px;"></div>
+                </div>
+
                 <div class="summary-row">
                     <span class="label">Tạm tính</span>
                     <span><?= formatPrice($subtotal) ?></span>
                 </div>
-                <div class="summary-row">
+                <div class="summary-row" style="margin-bottom:8px;">
                     <span class="label">Phí vận chuyển</span>
                     <span><?= $ship == 0 ? '<span style="color:var(--success)">Miễn phí</span>' : formatPrice($ship) ?></span>
                 </div>
@@ -311,14 +321,14 @@ require_once __DIR__ . '/includes/header.php';
                 $applied = $_SESSION['applied_coupon'] ?? null;
                 $discount = $applied['discount'] ?? 0;
                 ?>
-                <div id="checkoutDiscountRow" class="summary-row" style="<?= $discount > 0 ? '' : 'display:none' ?>">
-                    <span class="label">Giảm giá (<span id="checkoutCouponCode"><?= $applied['code'] ?? '' ?></span>)</span>
-                    <span style="color:var(--danger);">-<?= formatPrice($discount) ?></span>
+                <div id="checkoutDiscountRow" class="summary-row" style="<?= $discount > 0 ? 'display:flex' : 'display:none' ?>; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                    <span class="label">Giảm giá (<span id="checkoutCouponCode" style="font-weight:bold; color:var(--accent);"><?= sanitize($applied['code'] ?? '') ?></span>) <button type="button" onclick="removeCouponCodeServer()" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:12px; padding:0; margin-left:4px;" title="Xóa mã">✕</button></span>
+                    <span style="color:var(--danger);" id="checkoutDiscountAmount">-<?= formatPrice($discount) ?></span>
                 </div>
 
-                <div class="summary-row summary-total">
-                    <span>Tổng cộng</span>
-                    <span style="color:var(--accent);" id="checkoutTotalText"><?= formatPrice(max(0, $total - $discount)) ?></span>
+                <div class="summary-row summary-total" style="border-top:1px dashed #e0e0e0; padding-top:20px; margin-top:10px;">
+                    <span style="font-size: 18px; font-weight: 800; color: #111;">Tổng cộng</span>
+                    <span style="color:var(--accent); font-size: 20px; font-weight: 800;" id="checkoutTotalText"><?= formatPrice(max(0, $total - $discount)) ?></span>
                 </div>
 
                 <input type="hidden" name="ma_km" id="checkout_km" value="<?= $applied['id'] ?? '' ?>">
@@ -366,6 +376,70 @@ function fillAddress(addr) {
     if (checkoutSelector) {
         checkoutSelector.setValues(addr.tinh_thanh, addr.quan_huyen, addr.phuong_xa);
     }
+}
+
+// ================= COUPON LOGIC =================
+const subtotalValue = <?= $subtotal ?>;
+const shipFeeValue = <?= $ship ?>;
+const applyCouponBtn = document.getElementById('applyCouponBtn');
+const couponInput = document.getElementById('couponInput');
+const couponMessage = document.getElementById('couponMessage');
+
+function formatCurrency(num) {
+    return new Intl.NumberFormat('vi-VN').format(num) + ' VND';
+}
+
+if (applyCouponBtn) {
+    applyCouponBtn.addEventListener('click', async () => {
+        const code = couponInput.value.trim();
+        if (!code) {
+            couponMessage.innerHTML = '<span style="color:var(--danger)">Vui lòng nhập mã giảm giá</span>';
+            return;
+        }
+        
+        applyCouponBtn.disabled = true;
+        applyCouponBtn.textContent = '...';
+        
+        try {
+            const res = await fetch(`api/coupon.php?code=${encodeURIComponent(code)}&total=${subtotalValue}`);
+            const data = await res.json();
+            
+            if (data.success) {
+                couponMessage.innerHTML = `<span style="color:var(--success)">✅ ${data.message}</span>`;
+                document.getElementById('checkout_km').value = data.coupon_id;
+                document.getElementById('checkout_giam').value = data.discount;
+                document.getElementById('checkoutCouponCode').textContent = code;
+                document.getElementById('checkoutDiscountRow').style.display = 'flex';
+                document.getElementById('checkoutDiscountAmount').textContent = '-' + formatCurrency(data.discount);
+                document.getElementById('checkoutTotalText').textContent = formatCurrency(Math.max(0, subtotalValue + shipFeeValue - data.discount));
+            } else {
+                couponMessage.innerHTML = `<span style="color:var(--danger)">❌ ${data.message}</span>`;
+                removeCouponCodeLocally();
+            }
+        } catch (e) {
+            couponMessage.innerHTML = '<span style="color:var(--danger)">❌ Lỗi kết nối máy chủ</span>';
+            removeCouponCodeLocally();
+        } finally {
+            applyCouponBtn.disabled = false;
+            applyCouponBtn.textContent = 'Áp dụng';
+        }
+    });
+}
+
+function removeCouponCodeLocally() {
+    document.getElementById('checkout_km').value = '';
+    document.getElementById('checkout_giam').value = 0;
+    document.getElementById('checkoutDiscountRow').style.display = 'none';
+    document.getElementById('checkoutTotalText').textContent = formatCurrency(subtotalValue + shipFeeValue);
+}
+
+async function removeCouponCodeServer() {
+    try {
+        await fetch('api/coupon.php?remove=1');
+        couponInput.value = '';
+        couponMessage.innerHTML = '<span style="color:var(--text-muted)">Đã gỡ mã giảm giá</span>';
+        removeCouponCodeLocally();
+    } catch(e) {}
 }
 </script>
 

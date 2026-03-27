@@ -58,29 +58,93 @@
     </div>
 </footer>
 
-<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/chat.css">
+<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/chat.css?v=3.8">
 
-<!-- Chat Widget -->
-<div class="chat-widget">
-    <div class="chat-trigger" id="chatTrigger">
-        <span>💬</span>
+<!-- Chat Widget V3 (Unique Mode) -->
+<div class="ps-chat-widget">
+    <div class="ps-chat-trigger" id="chatTrigger">
+        <div class="ps-chat-sparkle-container">
+            <svg class="ps-chat-sparkle s1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="#FFD700"/>
+            </svg>
+            <svg class="ps-chat-sparkle s2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="#FFD700"/>
+            </svg>
+            <svg class="ps-chat-sparkle s3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="#FFD700"/>
+            </svg>
+        </div>
     </div>
-    <div class="chat-window" id="chatWindow">
-        <div class="chat-header">
-            <h4>Hỗ trợ trực tuyến</h4>
-            <span class="chat-close" id="chatClose">✕</span>
+    <div class="ps-chat-window" id="chatWindow">
+        <!-- Resize handles -->
+        <div class="ps-chat-resizer ps-chat-resizer-t"></div>
+        <div class="ps-chat-resizer ps-chat-resizer-l"></div>
+        <div class="ps-chat-resizer ps-chat-resizer-tl"></div>
+        
+        <div class="ps-chat-header">
+            <div class="ps-chat-title">
+                <img src="<?= BASE_URL ?>/assets/images/chat_robot_avatar.png" alt="Robot" class="ps-chat-avatar">
+                <div class="ps-chat-header-info">
+                    <span class="ps-chat-online-dot"></span> Trợ lý PhoneStore
+                </div>
+            </div>
+            <div class="ps-chat-header-actions">
+                <span class="ps-chat-action-btn" id="chatHistory" title="Lịch sử trò chuyện">🕒</span>
+                <span class="ps-chat-action-btn ps-chat-expand-btn" id="chatExpand" title="Mở rộng">⤢</span>
+                <span class="ps-chat-action-btn ps-chat-refresh-btn" id="chatRefresh" title="Làm mới cuộc trò chuyện">✨</span>
+                <span class="ps-chat-close" id="chatClose">✕</span>
+            </div>
         </div>
-        <div class="chat-messages" id="chatMessages">
-            <div class="message ai">Xin chào! Tôi là trợ lý ảo của PhoneStore. Tôi có thể giúp gì cho bạn?</div>
+        
+        <!-- History Drawer -->
+        <div class="ps-chat-history-drawer" id="historyDrawer">
+            <div class="ps-chat-drawer-header">
+                <span class="ps-chat-drawer-title">Lịch sử trò chuyện</span>
+                <span class="ps-chat-action-btn" id="closeHistory">✕</span>
+            </div>
+            <div class="ps-chat-history-list" id="historyList">
+                <div class="ps-chat-history-item">
+                    <p>Đang tải lịch sử...</p>
+                </div>
+            </div>
         </div>
-        <div class="chat-input-area">
-            <input type="text" id="chatInput" placeholder="Nhập tin nhắn...">
-            <button class="chat-send" id="chatSend">➤</button>
+
+        <div class="ps-chat-messages" id="chatMessages">
+            <!-- JS will render Welcome View or Messages here -->
+        </div>
+
+        <div class="ps-chat-typing" id="typingIndicator">
+            <div class="ps-chat-dot"></div>
+            <div class="ps-chat-dot"></div>
+            <div class="ps-chat-dot"></div>
+            <span>Gemini đang suy nghĩ...</span>
+        </div>
+
+        <div class="ps-chat-input-area">
+            <div class="ps-chat-input-wrapper">
+                <input type="text" id="chatInput" placeholder="Hỏi tôi bất cứ điều gì...">
+                <button class="ps-chat-icon-btn" id="voiceBtn" title="Nhập bằng giọng nói">🎤</button>
+                <button class="ps-chat-send-btn" id="chatSend">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" fill="white"/></svg>
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
-<script src="<?= BASE_URL ?>/assets/js/chat.js"></script>
+<script>
+    // Nhận diện trạng thái đăng nhập để tự động làm mới chatbot
+    const currentUserId = '<?= isLoggedIn() ? $_SESSION['user_site']['id'] : "" ?>';
+    const lastUserId = sessionStorage.getItem('last_chat_user');
+    
+    if (lastUserId !== null && lastUserId !== currentUserId) {
+        sessionStorage.setItem('chat_needs_refresh', 'true');
+    }
+    sessionStorage.setItem('last_chat_user', currentUserId);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="<?= BASE_URL ?>/assets/js/chat.js?v=<?= time() ?>"></script>
 <script src="<?= BASE_URL ?>/assets/js/main.js"></script>
 <script src="<?= BASE_URL ?>/assets/js/address_selector.js"></script>
 <script src="<?= BASE_URL ?>/assets/js/cart.js"></script>

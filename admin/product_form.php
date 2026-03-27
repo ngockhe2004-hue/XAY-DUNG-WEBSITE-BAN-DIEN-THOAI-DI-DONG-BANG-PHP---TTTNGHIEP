@@ -57,12 +57,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_hang_moi = isset($_POST['is_hang_moi']) ? 1 : 0;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
 
+    // Validate: phải chọn ít nhất 1 danh mục
+    if (empty($ma_danhmucs)) {
+        setFlash('error', 'Vui lòng chọn ít nhất một danh mục sản phẩm!');
+        // Không redirect, để form hiển thị lại với lỗi
+    } else {
+
     try {
         db()->beginTransaction();
 
         if ($id > 0) {
             // Cập nhật sản phẩm (vẫn giữ ma_danhmuc cũ để tương thích nhưng sẽ lấy cái đầu tiên)
-            $first_dm = !empty($ma_danhmucs) ? (int)$ma_danhmucs[0] : null;
+            $first_dm = (int)$ma_danhmucs[0];
 
             db()->execute("UPDATE sanpham SET 
                 ten_sanpham=?, slug=?, ma_sanpham_code=?, ma_danhmuc=?, ma_thuonghieu=?, 
@@ -79,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $productId = $id;
         } else {
             // Thêm mới sản phẩm
-            $first_dm = !empty($ma_danhmucs) ? (int)$ma_danhmucs[0] : null;
+            $first_dm = (int)$ma_danhmucs[0];
 
             $productId = db()->insert("INSERT INTO sanpham (
                 ten_sanpham, slug, ma_sanpham_code, ma_danhmuc, ma_thuonghieu, 
@@ -242,6 +248,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db()->rollback();
         setFlash('error', 'Lỗi: ' . $e->getMessage());
     }
+
+    } // end if (!empty($ma_danhmucs))
 }
 
 $categories = db()->fetchAll("SELECT * FROM danhmuc WHERE is_active = 1 ORDER BY thu_tu");

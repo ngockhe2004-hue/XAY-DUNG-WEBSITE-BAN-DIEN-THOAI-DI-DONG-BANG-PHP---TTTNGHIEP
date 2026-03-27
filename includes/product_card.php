@@ -2,12 +2,12 @@
 // Product Card Component (included in loops)
 // Variable $p must be set (product row from v_sanpham_tongquan + joins)
 $wished = in_array($p['ma_sanpham'], $wishedProducts ?? []);
-$imgSrc = $p['anh_chinh'] ? BASE_URL . '/uploads/products/' . basename($p['anh_chinh']) : 'https://placehold.co/400x400/1a1a26/6c63ff?text=' . urlencode($p['ten_sanpham']);
+$imgSrc = ($p['anh_chinh'] ?? null) ? BASE_URL . '/uploads/products/' . basename($p['anh_chinh']) : 'https://placehold.co/400x400/1a1a26/6c63ff?text=' . urlencode($p['ten_sanpham']);
 
 // Logic xác định giá hiển thị
 // Ưu tiên giá từ bảng sanpham (nhập từ admin), nếu không có mới lấy giá thấp nhất của biến thể
-$currentPrice = $p['gia_khuyen_mai'] ?: ($p['gia_thap'] ?? $p['gia_min'] ?? 0);
-$originalPrice = $p['gia_goc'] ?: ($p['gia_goc_thap_nhat'] ?? $p['gia_goc_min'] ?? 0);
+$currentPrice = ($p['gia_khuyen_mai'] ?? 0) ?: ($p['gia_thap'] ?? $p['gia_min'] ?? 0);
+$originalPrice = ($p['gia_goc'] ?? 0) ?: ($p['gia_goc_thap_nhat'] ?? $p['gia_goc_min'] ?? 0);
 $hasDiscount = $originalPrice > 0 && $currentPrice > 0 && $originalPrice > $currentPrice;
 $discountPct = $hasDiscount ? round((1 - $currentPrice / $originalPrice) * 100) : 0;
 ?>
@@ -18,6 +18,12 @@ $discountPct = $hasDiscount ? round((1 - $currentPrice / $originalPrice) * 100) 
         <a href="<?= BASE_URL ?>/product_detail.php?id=<?= $p['ma_sanpham'] ?>">
             <img src="<?= $imgSrc ?>" alt="<?= sanitize($p['ten_sanpham']) ?>" loading="lazy">
         </a>
+        <!-- Nút yêu thích -->
+        <button class="btn-wishlist-card <?= $wished ? 'wished' : '' ?>"
+                onclick="toggleWishlistCard(this, <?= $p['ma_sanpham'] ?>)"
+                title="<?= $wished ? 'Bỏ yêu thích' : 'Thêm vào yêu thích' ?>">
+            <?= $wished ? '❤️' : '🤍' ?>
+        </button>
     </div>
     
     <div class="card-content-v2">
@@ -26,8 +32,8 @@ $discountPct = $hasDiscount ? round((1 - $currentPrice / $originalPrice) * 100) 
         </h3>
 
         <div class="tech-info-v2">
-            <span><?= $p['man_hinh_size'] ?: '6.7' ?>"</span>
-            <span><?= $p['man_hinh_dophangiai'] ?: 'OLED' ?></span>
+            <span><?= ($p['man_hinh_size'] ?? null) ?: '6.7' ?>"</span>
+            <span><?= ($p['man_hinh_dophangiai'] ?? null) ?: 'OLED' ?></span>
         </div>
         
         <div class="price-box-v2">
@@ -38,8 +44,9 @@ $discountPct = $hasDiscount ? round((1 - $currentPrice / $originalPrice) * 100) 
         </div>
 
         <div class="card-footer-v2">
-            <div class="rating-v2">⭐ <?= number_format($p['diem_danh_gia'], 1) ?></div>
+            <div class="rating-v2">⭐ <?= number_format($p['diem_danh_gia'] ?? 0, 1) ?></div>
             <button class="btn-quick-add" onclick="quickAddToCart(<?= $p['ma_sanpham'] ?>, this)">+</button>
         </div>
     </div>
 </div>
+

@@ -52,6 +52,32 @@ if ($method === 'PUT') {
             jsonOut(false, 'Lỗi: ' . $e->getMessage());
         }
     }
+
+    if ($action === 'cancel_all') {
+        $orders = db()->fetchAll("SELECT * FROM donhang WHERE ma_user = ? AND trang_thai = 'cho_xac_nhan'", [$userId]);
+        if (empty($orders)) jsonOut(false, 'Không có đơn hàng nào đang chờ xác nhận để hủy');
+
+        try {
+            db()->beginTransaction();
+            $count = 0;
+            foreach ($orders as $order) {
+                db()->execute("UPDATE donhang SET trang_thai = 'da_huy' WHERE ma_donhang = ?", [$order['ma_donhang']]);
+                db()->insert("INSERT INTO donhang_trangthai_logs (ma_donhang, trang_thai, mo_ta) VALUES (?,?,?)",
+                    [$order['ma_donhang'], 'da_huy', 'Hủy hàng loạt bằng PhoneStore Copilot']);
+                
+                $items = db()->fetchAll("SELECT * FROM chitiet_donhang WHERE ma_donhang = ?", [$order['ma_donhang']]);
+                foreach ($items as $item) {
+                    db()->execute("UPDATE bienthe_sanpham SET ton_kho = ton_kho + ? WHERE ma_bienthe = ?", [$item['so_luong'], $item['ma_bienthe']]);
+                }
+                $count++;
+            }
+            db()->commit();
+            jsonOut(true, "Đã hủy thành công $count đơn hàng");
+        } catch (Exception $e) {
+            db()->rollback();
+            jsonOut(false, 'Lỗi: ' . $e->getMessage());
+        }
+    }
 }
 
 // Handle POST - Rebuy

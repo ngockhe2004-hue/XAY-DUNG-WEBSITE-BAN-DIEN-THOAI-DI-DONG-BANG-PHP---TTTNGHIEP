@@ -9,8 +9,33 @@ $params = [];
 
 // Search
 if (!empty($_GET['q'])) {
-    $where[] = 'MATCH(sp.ten_sanpham, sp.mo_ta_ngan) AGAINST(? IN BOOLEAN MODE)';
-    $params[] = '*' . sanitize($_GET['q']) . '*';
+    $q = trim($_GET['q']);
+    $cleanQ = preg_replace('/[+\-><()~*"]/', ' ', $q);
+    $words = array_filter(explode(' ', $cleanQ), function($w) { return strlen(trim($w)) > 0; });
+    
+    $ftsTerms = [];
+    $likeTerms = [];
+    foreach ($words as $word) {
+        $word = trim($word);
+        if (strlen($word) >= 3) {
+            $ftsTerms[] = '+' . $word . '*';
+        } else {
+            $likeTerms[] = $word;
+        }
+    }
+
+    if (!empty($ftsTerms)) {
+        $where[] = 'MATCH(sp.ten_sanpham, sp.mo_ta_ngan) AGAINST(? IN BOOLEAN MODE)';
+        $params[] = implode(' ', $ftsTerms);
+    }
+
+    if (!empty($likeTerms)) {
+        foreach ($likeTerms as $lt) {
+            $where[] = '(sp.ten_sanpham LIKE ? OR sp.mo_ta_ngan LIKE ?)';
+            $params[] = "%$lt%";
+            $params[] = "%$lt%";
+        }
+    }
 }
 // Danh mục
 if (!empty($_GET['danhmuc'])) {

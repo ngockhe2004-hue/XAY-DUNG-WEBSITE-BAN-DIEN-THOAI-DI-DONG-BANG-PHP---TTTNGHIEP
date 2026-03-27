@@ -7,8 +7,10 @@ $userId = $_SESSION['user_site']['id'];
 $wishedProducts = [];
 $products = db()->fetchAll("
     SELECT sp.ma_sanpham, sp.ten_sanpham, sp.diem_danh_gia, sp.tong_da_ban, sp.is_hang_moi, sp.is_noi_bat,
+           sp.gia_goc, sp.gia_khuyen_mai,
            th.ten_thuonghieu,
            (SELECT image_url FROM hinhanh_sanpham h WHERE h.ma_sanpham = sp.ma_sanpham AND h.la_anh_chinh = 1 LIMIT 1) as anh_chinh,
+           (SELECT MIN(gia) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham AND is_active=1) as gia_thap,
            (SELECT MIN(gia) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham AND is_active=1) as gia_thap_nhat,
            (SELECT MAX(gia) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham AND is_active=1) as gia_cao_nhat,
            (SELECT MIN(gia_goc) FROM bienthe_sanpham WHERE ma_sanpham = sp.ma_sanpham AND is_active=1) as gia_goc_thap_nhat,
@@ -29,6 +31,11 @@ $wishedProducts = array_column($products, 'ma_sanpham');
             <h1 class="page-title">❤️ Sản Phẩm Yêu Thích</h1>
             <p style="color:var(--text-secondary);"><?= count($products) ?> sản phẩm</p>
         </div>
+        <?php if (!empty($products)): ?>
+        <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger);" onclick="clearAllWishlist()">
+            🗑️ Xóa tất cả
+        </button>
+        <?php endif; ?>
     </div>
     <?php if (empty($products)): ?>
     <div class="empty-state">
@@ -45,5 +52,31 @@ $wishedProducts = array_column($products, 'ma_sanpham');
     </div>
     <?php endif; ?>
 </div>
+
+<script>
+async function clearAllWishlist() {
+    if (!confirm('⚠️ Bạn có chắc chắn muốn xóa toàn bộ danh sách yêu thích?')) return;
+    
+    try {
+        const res = await fetch('<?= BASE_URL ?>/api/wishlist.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'clear_all'})
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (typeof showToast === 'function') {
+                showToast('🗑️ Đã xóa toàn bộ danh sách yêu thích!', 'success');
+            }
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert(data.message || 'Có lỗi xảy ra');
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Lỗi kết nối!');
+    }
+}
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

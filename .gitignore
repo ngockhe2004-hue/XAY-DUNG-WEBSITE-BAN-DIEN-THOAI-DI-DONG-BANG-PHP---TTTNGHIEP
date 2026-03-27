@@ -6,3 +6,6 @@ Thumbs.db
 *.log
 /tmp/
 /brain/
+.env
+.htaccess
+columns.txt

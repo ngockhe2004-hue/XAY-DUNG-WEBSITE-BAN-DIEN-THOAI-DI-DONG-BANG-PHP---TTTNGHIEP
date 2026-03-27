@@ -6,6 +6,16 @@ require_once __DIR__ . '/../includes/auth.php';
 $cartCount = isLoggedIn() ? getCartCount() : 0;
 $categories = db()->fetchAll("SELECT * FROM danhmuc WHERE is_active = 1 ORDER BY thu_tu ASC LIMIT 8");
 $flash = getFlash();
+
+// Load danh sách yêu thích global (nếu chưa được load bởi trang cụ thể)
+if (!isset($wishedProducts)) {
+    $wishedProducts = [];
+    if (isLoggedIn()) {
+        $userId = $_SESSION['user_site']['id'];
+        $wishedRows = db()->fetchAll("SELECT ma_sanpham FROM dsyeuthich WHERE ma_user = ?", [$userId]);
+        $wishedProducts = array_column($wishedRows, 'ma_sanpham');
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -64,6 +74,14 @@ $flash = getFlash();
                     </div>
                     <span class="label">Giỏ hàng</span>
                 </a>
+
+                <a href="<?= BASE_URL ?>/wishlist.php" class="action-item">
+                    <div class="icon-box">
+                        <span class="icon">❤️</span>
+                        <span class="badge" id="wishlistCount"><?= count($wishedProducts) ?></span>
+                    </div>
+                    <span class="label">Yêu thích</span>
+                </a>
                 
                 <?php if (isLoggedIn()): ?>
                     <a href="<?= BASE_URL ?>/profile.php" class="action-item">
@@ -110,3 +128,58 @@ $flash = getFlash();
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+const IS_LOGGED_IN = <?= isLoggedIn() ? 'true' : 'false' ?>;
+const LOGIN_URL = '<?= BASE_URL ?>/login.php';
+const WISHLIST_API = '<?= BASE_URL ?>/api/wishlist.php';
+
+async function toggleWishlistCard(btn, productId) {
+    if (!IS_LOGGED_IN) {
+        if (confirm('Bạn cần đăng nhập để lưu yêu thích. Đăng nhập ngay?')) {
+            window.location.href = LOGIN_URL;
+        }
+        return;
+    }
+    btn.classList.add('loading');
+    try {
+        const res = await fetch(WISHLIST_API, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ma_sanpham: productId})
+        });
+        const data = await res.json();
+        if (data.success) {
+            const isWished = data.action === 'added';
+            btn.innerHTML = isWished ? '❤️' : '🤍';
+            btn.title = isWished ? 'Bỏ yêu thích' : 'Thêm vào yêu thích';
+            btn.classList.toggle('wished', isWished);
+            // Animation nhỏ
+            btn.style.transform = 'scale(1.35)';
+            setTimeout(() => btn.style.transform = '', 250);
+
+            if (typeof showToast === 'function') {
+                showToast(isWished ? '💖 Đã thêm vào yêu thích!' : '💔 Đã xóa khỏi yêu thích', isWished ? 'success' : 'info');
+            }
+
+            // Cập nhật số lượng trên header badge
+            const wlBadge = document.getElementById('wishlistCount');
+            if (wlBadge) {
+                let count = parseInt(wlBadge.textContent) || 0;
+                count = isWished ? count + 1 : Math.max(0, count - 1);
+                wlBadge.textContent = count;
+                // Hiệu ứng scale badge
+                wlBadge.style.transform = 'scale(1.5)';
+                setTimeout(() => wlBadge.style.transform = '', 300);
+            }
+        }
+    } catch(e) {
+        console.error('Wishlist error:', e);
+        if (typeof showToast === 'function') {
+            showToast('❌ Có lỗi xảy ra, vui lòng thử lại!', 'error');
+        }
+    } finally {
+        btn.classList.remove('loading');
+    }
+}
+</script>
